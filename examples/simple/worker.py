@@ -6,12 +6,13 @@ from hatchet_sdk.v2 import Hatchet
 hatchet = Hatchet(debug=True)
 
 
-@hatchet.function(timeout="11s")
+@hatchet.function()
 def step1(context: Context) -> dict[str, str]:
-    print("executed step1")
-    return {
-        "step1": "step1",
-    }
+    message = "Hello from Hatchet!"
+
+    context.log(message)
+
+    return {"message": message}
 
 
 def main() -> None:

@@ -108,7 +108,33 @@ class Worker:
             logger.error(e)
             sys.exit(1)
 
-    def register_workflow(self, workflow: Union["BaseWorkflow", Any]) -> None:
+    def register_function(self, function: "Function[Any]") -> None:
+        from hatchet_sdk.workflow import BaseWorkflow
+
+        declaration = function.hatchet.declare_workflow(
+            **function.workflow_config.model_dump()
+        )
+
+        class Workflow(BaseWorkflow):
+            config = declaration.config
+
+            @property
+            def default_steps(self) -> list[Step[Any]]:
+                return [function.step]
+
+            @property
+            def on_failure_steps(self) -> list[Step[Any]]:
+                if not function.on_failure_step:
+                    return []
+
+                step = function.on_failure_step.step
+                step.type = StepType.ON_FAILURE
+
+                return [step]
+
+        self.register_workflow(Workflow())
+
+    def register_workflow(self, workflow: Union["BaseWorkflowImpl", Any]) -> None:
         namespace = self.client.config.namespace
 
         try:
@@ -120,7 +146,9 @@ class Worker:
             logger.error(e)
             sys.exit(1)
 
+        print(workflow.steps)
         for step in workflow.steps:
+            print(step)
             action_name = workflow.create_action_name(namespace, step)
             self.action_registry[action_name] = step
             return_type = get_type_hints(step.fn).get("return")
