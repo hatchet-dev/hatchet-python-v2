@@ -110,6 +110,9 @@ class Worker:
             logger.error(e)
             sys.exit(1)
 
+    def register_function(self, function: "BaseWorkflowImpl") -> None:
+        self.register_workflow(function)
+
     def register_workflow(self, workflow: Union["BaseWorkflowImpl", Any]) -> None:
         namespace = self.client.config.namespace
 

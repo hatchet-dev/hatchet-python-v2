@@ -1,6 +1,15 @@
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Optional, Type, TypeVar, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Optional,
+    ParamSpec,
+    Type,
+    TypeVar,
+    cast,
+)
 
 from hatchet_sdk.client import Client, new_client, new_client_raw
 from hatchet_sdk.clients.admin import AdminClient
@@ -17,6 +26,7 @@ from hatchet_sdk.loader import ClientConfig
 from hatchet_sdk.logger import logger
 from hatchet_sdk.rate_limit import RateLimit
 from hatchet_sdk.v2.workflows import (
+    BaseWorkflowImpl,
     ConcurrencyExpression,
     EmptyModel,
     Step,
@@ -30,6 +40,7 @@ from hatchet_sdk.v2.workflows import (
 if TYPE_CHECKING:
     from hatchet_sdk.worker.worker import Worker
 
+P = ParamSpec("P")
 R = TypeVar("R")
 
 
@@ -184,6 +195,55 @@ class Hatchet:
                 backoff_factor=backoff_factor,
                 backoff_max_seconds=backoff_max_seconds,
             )
+
+        return inner
+
+    def function(
+        self,
+        name: str = "",
+        on_events: list[str] = [],
+        on_crons: list[str] = [],
+        version: str = "",
+        timeout: str = "60m",
+        schedule_timeout: str = "5m",
+        sticky: StickyStrategy | None = None,
+        default_priority: int = 1,
+        concurrency: ConcurrencyExpression | None = None,
+        input_validator: Type[TWorkflowInput] | None = None,
+    ) -> Callable[[Callable[[Context], R]], BaseWorkflowImpl]:
+        declaration = WorkflowDeclaration[TWorkflowInput](
+            WorkflowConfig(
+                name=name,
+                on_events=on_events,
+                on_crons=on_crons,
+                version=version,
+                timeout=timeout,
+                schedule_timeout=schedule_timeout,
+                sticky=sticky,
+                default_priority=default_priority,
+                concurrency=concurrency,
+                input_validator=input_validator
+                or cast(Type[TWorkflowInput], EmptyModel),
+            ),
+            self,
+        )
+
+        def inner(func: Callable[[Context], R]) -> BaseWorkflowImpl:
+            class Workflow(BaseWorkflowImpl):
+                config = declaration.config
+
+                @self.step(
+                    name=name,
+                    timeout=timeout,
+                    retries=0,
+                    rate_limits=[],
+                    backoff_factor=None,
+                    backoff_max_seconds=None,
+                )
+                def fn(self, context: Context) -> R:
+                    return func(context)
+
+            return Workflow()
 
         return inner
 
