@@ -4,10 +4,12 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
+    Generic,
     Optional,
     ParamSpec,
     Type,
     TypeVar,
+    Union,
     cast,
 )
 
@@ -53,6 +55,56 @@ def transform_desired_worker_label(d: DesiredWorkerLabel) -> DesiredWorkerLabels
         weight=d.weight,
         comparator=d.comparator,  # type: ignore[arg-type]
     )
+
+
+class Function(Generic[R, TWorkflowInput]):
+    def __init__(
+        self,
+        fn: Callable[[Context], R],
+        hatchet: "Hatchet",
+        name: str = "",
+        on_events: list[str] = [],
+        on_crons: list[str] = [],
+        version: str = "",
+        timeout: str = "60m",
+        schedule_timeout: str = "5m",
+        sticky: StickyStrategy | None = None,
+        retries: int = 0,
+        rate_limits: list[RateLimit] = [],
+        desired_worker_labels: dict[str, DesiredWorkerLabel] = {},
+        concurrency: ConcurrencyExpression | None = None,
+        on_failure: Union["Function[R]", None] = None,
+        default_priority: int = 1,
+        input_validator: Type[TWorkflowInput] | None = None,
+        backoff_factor: float | None = None,
+        backoff_max_seconds: int | None = None,
+    ) -> None:
+        def func(_: Any, context: Context) -> R:
+            return fn(context)
+
+        self.hatchet = hatchet
+        self.step: Step[R] = hatchet.step(
+            name=name or fn.__name__,
+            timeout=timeout,
+            retries=retries,
+            rate_limits=rate_limits,
+            desired_worker_labels=desired_worker_labels,
+            backoff_factor=backoff_factor,
+            backoff_max_seconds=backoff_max_seconds,
+        )(func)
+        self.on_failure_step = on_failure
+        self.workflow_config = WorkflowConfig(
+            name=name or fn.__name__,
+            on_events=on_events,
+            on_crons=on_crons,
+            version=version,
+            timeout=timeout,
+            schedule_timeout=schedule_timeout,
+            sticky=sticky,
+            default_priority=default_priority,
+            concurrency=concurrency,
+            input_validator=input_validator or cast(Type[TWorkflowInput], EmptyModel),
+        )
 
 
 class Hatchet:
@@ -207,43 +259,37 @@ class Hatchet:
         timeout: str = "60m",
         schedule_timeout: str = "5m",
         sticky: StickyStrategy | None = None,
-        default_priority: int = 1,
+        retries: int = 0,
+        rate_limits: list[RateLimit] = [],
+        desired_worker_labels: dict[str, DesiredWorkerLabel] = {},
         concurrency: ConcurrencyExpression | None = None,
+        on_failure: Union["Function[Any]", None] = None,
+        default_priority: int = 1,
         input_validator: Type[TWorkflowInput] | None = None,
-    ) -> Callable[[Callable[[Context], R]], BaseWorkflowImpl]:
-        def inner(func: Callable[[Context], R]) -> BaseWorkflowImpl:
-            declaration = WorkflowDeclaration[TWorkflowInput](
-                WorkflowConfig(
-                    name=name or func.__name__,
-                    on_events=on_events,
-                    on_crons=on_crons,
-                    version=version,
-                    timeout=timeout,
-                    schedule_timeout=schedule_timeout,
-                    sticky=sticky,
-                    default_priority=default_priority,
-                    concurrency=concurrency,
-                    input_validator=input_validator
-                    or cast(Type[TWorkflowInput], EmptyModel),
-                ),
-                self,
+        backoff_factor: float | None = None,
+        backoff_max_seconds: int | None = None,
+    ) -> Callable[[Callable[[Context], R]], Function[R, TWorkflowInput]]:
+        def inner(func: Callable[[Context], R]) -> Function[R, TWorkflowInput]:
+            return Function[R, TWorkflowInput](
+                func,
+                hatchet=self,
+                name=name,
+                on_events=on_events,
+                on_crons=on_crons,
+                version=version,
+                timeout=timeout,
+                schedule_timeout=schedule_timeout,
+                sticky=sticky,
+                retries=retries,
+                rate_limits=rate_limits,
+                desired_worker_labels=desired_worker_labels,
+                concurrency=concurrency,
+                on_failure=on_failure,
+                default_priority=default_priority,
+                input_validator=input_validator,
+                backoff_factor=backoff_factor,
+                backoff_max_seconds=backoff_max_seconds,
             )
-
-            class Workflow(BaseWorkflowImpl):
-                config = declaration.config
-
-                @self.step(
-                    name=declaration.config.name,
-                    timeout=timeout,
-                    retries=0,
-                    rate_limits=[],
-                    backoff_factor=None,
-                    backoff_max_seconds=None,
-                )
-                def fn(self, context: Context) -> R:
-                    return func(context)
-
-            return Workflow()
 
         return inner
 
