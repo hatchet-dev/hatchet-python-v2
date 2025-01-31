@@ -146,9 +146,7 @@ class Worker:
             logger.error(e)
             sys.exit(1)
 
-        print(workflow.steps)
         for step in workflow.steps:
-            print(step)
             action_name = workflow.create_action_name(namespace, step)
             self.action_registry[action_name] = step
             return_type = get_type_hints(step.fn).get("return")
