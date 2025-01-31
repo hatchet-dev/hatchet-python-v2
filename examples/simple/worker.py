@@ -1,27 +1,25 @@
 from dotenv import load_dotenv
 
-from hatchet_sdk import Context
-from hatchet_sdk.v2 import BaseWorkflowImpl, Hatchet
-
 load_dotenv()
+
+from hatchet_sdk import Context
+from hatchet_sdk.v2 import Hatchet
 
 hatchet = Hatchet(debug=True)
 
 
-class MyWorkflow(BaseWorkflowImpl):
-    @hatchet.step(timeout="11s", retries=3)
-    def step1(self, context: Context) -> dict[str, str]:
-        print("executed step1")
-        return {
-            "step1": "step1",
-        }
+@hatchet.function()
+def step1(context: Context) -> dict[str, str]:
+    message = "Hello from Hatchet!"
+
+    context.log(message)
+
+    return {"message": message}
 
 
 def main() -> None:
-    wf = MyWorkflow()
-
     worker = hatchet.worker("test-worker", max_runs=1)
-    worker.register_workflow(wf)
+    worker.register_function(step1)
     worker.start()
 
 
