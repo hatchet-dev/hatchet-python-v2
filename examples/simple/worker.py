@@ -1,9 +1,9 @@
 from dotenv import load_dotenv
 
-from hatchet_sdk import Context
-from hatchet_sdk.v2 import BaseWorkflowImpl, Hatchet
-
 load_dotenv()
+
+from hatchet_sdk import Context
+from hatchet_sdk.v2 import Hatchet
 
 hatchet = Hatchet(debug=True)
 

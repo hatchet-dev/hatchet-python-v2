@@ -211,29 +211,29 @@ class Hatchet:
         concurrency: ConcurrencyExpression | None = None,
         input_validator: Type[TWorkflowInput] | None = None,
     ) -> Callable[[Callable[[Context], R]], BaseWorkflowImpl]:
-        declaration = WorkflowDeclaration[TWorkflowInput](
-            WorkflowConfig(
-                name=name,
-                on_events=on_events,
-                on_crons=on_crons,
-                version=version,
-                timeout=timeout,
-                schedule_timeout=schedule_timeout,
-                sticky=sticky,
-                default_priority=default_priority,
-                concurrency=concurrency,
-                input_validator=input_validator
-                or cast(Type[TWorkflowInput], EmptyModel),
-            ),
-            self,
-        )
-
         def inner(func: Callable[[Context], R]) -> BaseWorkflowImpl:
+            declaration = WorkflowDeclaration[TWorkflowInput](
+                WorkflowConfig(
+                    name=name or func.__name__,
+                    on_events=on_events,
+                    on_crons=on_crons,
+                    version=version,
+                    timeout=timeout,
+                    schedule_timeout=schedule_timeout,
+                    sticky=sticky,
+                    default_priority=default_priority,
+                    concurrency=concurrency,
+                    input_validator=input_validator
+                    or cast(Type[TWorkflowInput], EmptyModel),
+                ),
+                self,
+            )
+
             class Workflow(BaseWorkflowImpl):
                 config = declaration.config
 
                 @self.step(
-                    name=name,
+                    name=declaration.config.name,
                     timeout=timeout,
                     retries=0,
                     rate_limits=[],
