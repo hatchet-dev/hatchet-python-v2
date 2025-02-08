@@ -42,4 +42,3 @@ class WorkflowRunRef:
             coro = self.workflow_listener.result(self.workflow_run_id)
             future = asyncio.run_coroutine_threadsafe(coro, loop)
             return future.result()
-
