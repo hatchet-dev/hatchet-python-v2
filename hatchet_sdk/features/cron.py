@@ -198,7 +198,7 @@ class CronClient:
             expression=expression, input=input, additional_metadata=additional_metadata
         )
 
-        return await self._client.rest.aio.cron_create(
+        return await self._client.rest.acron_create(
             workflow_name=workflow_name,
             cron_name=cron_name,
             expression=validated_input.expression,
@@ -213,7 +213,7 @@ class CronClient:
         Args:
             cron_trigger (Union[str, CronWorkflows]): The cron trigger ID or CronWorkflows instance to delete.
         """
-        await self._client.rest.aio.cron_delete(
+        await self._client.rest.acron_delete(
             cron_trigger.metadata.id
             if isinstance(cron_trigger, CronWorkflows)
             else cron_trigger
@@ -242,7 +242,7 @@ class CronClient:
         Returns:
             CronWorkflowsList: A list of cron workflows.
         """
-        return await self._client.rest.aio.cron_list(
+        return await self._client.rest.acron_list(
             offset=offset,
             limit=limit,
             workflow_id=workflow_id,
@@ -262,7 +262,7 @@ class CronClient:
             CronWorkflows: The requested cron workflow instance.
         """
 
-        return await self._client.rest.aio.cron_get(
+        return await self._client.rest.acron_get(
             cron_trigger.metadata.id
             if isinstance(cron_trigger, CronWorkflows)
             else cron_trigger

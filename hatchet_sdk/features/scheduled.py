@@ -163,7 +163,7 @@ class ScheduledClient:
         Returns:
             ScheduledWorkflows: The created scheduled workflow instance.
         """
-        return await self._client.rest.aio.schedule_create(
+        return await self._client.rest.aschedule_create(
             workflow_name, trigger_at, input, additional_metadata
         )
 
@@ -174,7 +174,7 @@ class ScheduledClient:
         Args:
             scheduled (Union[str, ScheduledWorkflows]): The scheduled workflow trigger ID or ScheduledWorkflows instance to delete.
         """
-        await self._client.rest.aio.schedule_delete(
+        await self._client.rest.aschedule_delete(
             scheduled.metadata.id
             if isinstance(scheduled, ScheduledWorkflows)
             else scheduled
@@ -203,7 +203,7 @@ class ScheduledClient:
         Returns:
             ScheduledWorkflowsList: A list of scheduled workflows matching the criteria.
         """
-        return await self._client.rest.aio.schedule_list(
+        return await self._client.rest.aschedule_list(
             offset=offset,
             limit=limit,
             workflow_id=workflow_id,
@@ -224,7 +224,7 @@ class ScheduledClient:
         Returns:
             ScheduledWorkflows: The requested scheduled workflow instance.
         """
-        return await self._client.rest.aio.schedule_get(
+        return await self._client.rest.aschedule_get(
             scheduled.metadata.id
             if isinstance(scheduled, ScheduledWorkflows)
             else scheduled
