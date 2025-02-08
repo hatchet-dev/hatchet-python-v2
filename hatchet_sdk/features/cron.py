@@ -1,4 +1,4 @@
-from typing import Union
+from typing import List, Union
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -68,10 +68,7 @@ class CronClient:
 
     Attributes:
         _client (Client): The underlying client used to interact with the REST API.
-        aio (CronClientAsync): Asynchronous counterpart of CronClient.
     """
-
-    _client: Client
 
     def __init__(self, _client: Client):
         """
@@ -81,7 +78,6 @@ class CronClient:
             _client (Client): The client instance to be used for REST interactions.
         """
         self._client = _client
-        self.aio = CronClientAsync(_client)
 
     def create(
         self,
@@ -134,7 +130,7 @@ class CronClient:
         offset: int | None = None,
         limit: int | None = None,
         workflow_id: str | None = None,
-        additional_metadata: list[str] | None = None,
+        additional_metadata: List[str] | None = None,
         order_by_field: CronWorkflowsOrderByField | None = None,
         order_by_direction: WorkflowRunOrderByDirection | None = None,
     ) -> CronWorkflowsList:
@@ -177,27 +173,7 @@ class CronClient:
             else cron_trigger
         )
 
-
-class CronClientAsync:
-    """
-    Asynchronous client for managing workflow cron triggers.
-
-    Attributes:
-        _client (Client): The underlying client used to interact with the REST API asynchronously.
-    """
-
-    _client: Client
-
-    def __init__(self, _client: Client):
-        """
-        Initializes the CronClientAsync with a given Client instance.
-
-        Args:
-            _client (Client): The client instance to be used for asynchronous REST interactions.
-        """
-        self._client = _client
-
-    async def create(
+    async def acreate(
         self,
         workflow_name: str,
         cron_name: str,
@@ -230,7 +206,7 @@ class CronClientAsync:
             additional_metadata=validated_input.additional_metadata,
         )
 
-    async def delete(self, cron_trigger: Union[str, CronWorkflows]) -> None:
+    async def adelete(self, cron_trigger: Union[str, CronWorkflows]) -> None:
         """
         Asynchronously deletes a workflow cron trigger.
 
@@ -243,12 +219,12 @@ class CronClientAsync:
             else cron_trigger
         )
 
-    async def list(
+    async def alist(
         self,
         offset: int | None = None,
         limit: int | None = None,
         workflow_id: str | None = None,
-        additional_metadata: list[str] | None = None,
+        additional_metadata: List[str] | None = None,
         order_by_field: CronWorkflowsOrderByField | None = None,
         order_by_direction: WorkflowRunOrderByDirection | None = None,
     ) -> CronWorkflowsList:
@@ -275,7 +251,7 @@ class CronClientAsync:
             order_by_direction=order_by_direction,
         )
 
-    async def get(self, cron_trigger: Union[str, CronWorkflows]) -> CronWorkflows:
+    async def aget(self, cron_trigger: Union[str, CronWorkflows]) -> CronWorkflows:
         """
         Asynchronously retrieves a specific workflow cron trigger by ID.
 
