@@ -7,7 +7,7 @@ hatchet = Hatchet()
 
 async def create_scheduled() -> None:
     # ❓ Create
-    scheduled_run = await hatchet.scheduled.aio.create(
+    scheduled_run = await hatchet.scheduled.acreate(
         workflow_name="simple-workflow",
         trigger_at=datetime.now() + timedelta(seconds=10),
         input={
@@ -22,13 +22,13 @@ async def create_scheduled() -> None:
     # !!
 
     # ❓ Delete
-    await hatchet.scheduled.aio.delete(scheduled=scheduled_run.metadata.id)
+    await hatchet.scheduled.adelete(scheduled=scheduled_run.metadata.id)
     # !!
 
     # ❓ List
-    await hatchet.scheduled.aio.list()
+    await hatchet.scheduled.alist()
     # !!
 
     # ❓ Get
-    scheduled_run = await hatchet.scheduled.aio.get(scheduled=scheduled_run.metadata.id)
+    scheduled_run = await hatchet.scheduled.aget(scheduled=scheduled_run.metadata.id)
     # !!
