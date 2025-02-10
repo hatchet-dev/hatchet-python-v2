@@ -22,7 +22,7 @@ class DedupeParent(BaseWorkflow):
             try:
                 results.append(
                     (
-                        await context.spawn_workflow(
+                        await context.aio_spawn_workflow(
                             "DedupeChild",
                             {"a": str(i)},
                             key=f"child{i}",

@@ -37,7 +37,7 @@ class Parent(BaseWorkflow):
 
         children = await asyncio.gather(
             *[
-                child_wf.spawn_one(
+                child_wf.aio_spawn_one(
                     ctx=context,
                     input=ChildInput(a=str(i)),
                     key=f"child{i}",

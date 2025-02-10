@@ -301,7 +301,7 @@ class Context:
         ]
 
     @tenacity_retry
-    async def spawn_workflow(
+    async def aio_spawn_workflow(
         self,
         workflow_name: str,
         input: JSONSerializableDict = {},
@@ -317,7 +317,7 @@ class Context:
         )
 
     @tenacity_retry
-    async def spawn_workflows(
+    async def aio_spawn_workflows(
         self, child_workflow_runs: list[ChildWorkflowRunDict]
     ) -> list[WorkflowRunRef]:
 
@@ -338,3 +338,40 @@ class Context:
         ]
 
         return await self.admin_client.aio_run_workflows(bulk_trigger_workflow_runs)
+
+    @tenacity_retry
+    def spawn_workflow(
+        self,
+        workflow_name: str,
+        input: JSONSerializableDict = {},
+        key: str | None = None,
+        options: ChildTriggerWorkflowOptions = ChildTriggerWorkflowOptions(),
+    ) -> WorkflowRunRef:
+        worker_id = self.worker.id()
+
+        trigger_options = self._prepare_workflow_options(key, options, worker_id)
+
+        return self.admin_client.run_workflow(workflow_name, input, trigger_options)
+
+    @tenacity_retry
+    def spawn_workflows(
+        self, child_workflow_runs: list[ChildWorkflowRunDict]
+    ) -> list[WorkflowRunRef]:
+
+        if len(child_workflow_runs) == 0:
+            raise Exception("no child workflows to spawn")
+
+        worker_id = self.worker.id()
+
+        bulk_trigger_workflow_runs = [
+            WorkflowRunDict(
+                workflow_name=child_workflow_run.workflow_name,
+                input=child_workflow_run.input,
+                options=self._prepare_workflow_options(
+                    child_workflow_run.key, child_workflow_run.options, worker_id
+                ),
+            )
+            for child_workflow_run in child_workflow_runs
+        ]
+
+        return self.admin_client.run_workflows(bulk_trigger_workflow_runs)

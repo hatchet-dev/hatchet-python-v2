@@ -31,7 +31,9 @@ class Parent(BaseWorkflow):
         ## to the type of your `input_validator`
         parent_workflow.get_workflow_input(context)  ## This is a `ParentInput`
 
-        child = await child_workflow.spawn_one(ctx=context, input=ChildInput(a=1, b=10))
+        child = await child_workflow.aio_spawn_one(
+            ctx=context, input=ChildInput(a=1, b=10)
+        )
 
         return cast(dict[str, str], await child.result())
 
