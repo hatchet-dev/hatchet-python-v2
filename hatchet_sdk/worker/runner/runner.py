@@ -242,7 +242,7 @@ class Runner:
 
         try:
             if step.is_async_function:
-                return await step.acall(context)
+                return await step.aio_call(context)
             else:
                 pfunc = functools.partial(
                     # we must copy the context vars to the new thread, as only asyncio natively supports

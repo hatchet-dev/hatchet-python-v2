@@ -170,7 +170,7 @@ class Step(Generic[R]):
 
         raise TypeError(f"{self.name} is not a sync function. Use `acall` instead.")
 
-    async def acall(self, ctx: Context) -> R:
+    async def aio_call(self, ctx: Context) -> R:
         if not self.is_registered:
             raise ValueError(
                 "Only steps that have been registered can be called. To register this step, instantiate its corresponding workflow."
@@ -274,7 +274,7 @@ class WorkflowDeclaration(Generic[TWorkflowInput]):
             options=options,
         )
 
-    async def aschedule(
+    async def aio_schedule(
         self,
         schedules: list[datetime | timestamp_pb2.Timestamp],
         input: TWorkflowInput,
@@ -283,7 +283,7 @@ class WorkflowDeclaration(Generic[TWorkflowInput]):
         if not self.hatchet:
             raise ValueError("Hatchet client is not initialized.")
 
-        return await self.hatchet.admin.aschedule_workflow(
+        return await self.hatchet.admin.aio_schedule_workflow(
             name=self.config.name,
             schedules=schedules,
             input=input.model_dump(),

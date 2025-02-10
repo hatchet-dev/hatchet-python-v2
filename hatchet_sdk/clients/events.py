@@ -69,7 +69,7 @@ class EventClient:
         self.namespace = config.namespace
         self.otel_tracer = create_tracer(config=config)
 
-    async def async_push(
+    async def aio_push(
         self,
         event_key: str,
         payload: dict[str, Any],
@@ -79,7 +79,7 @@ class EventClient:
             self.push, event_key=event_key, payload=payload, options=options
         )
 
-    async def async_bulk_push(
+    async def aio_bulk_push(
         self,
         events: list[BulkPushEventWithMetadata],
         options: BulkPushEventOptions = BulkPushEventOptions(),

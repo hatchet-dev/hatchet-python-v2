@@ -48,9 +48,9 @@ class WorkerActionRunLoopManager:
         self.start()
 
     def start(self, retry_count: int = 1) -> None:
-        k = self.loop.create_task(self.async_start(retry_count))  # noqa: F841
+        k = self.loop.create_task(self.aio_start(retry_count))  # noqa: F841
 
-    async def async_start(self, retry_count: int = 1) -> None:
+    async def aio_start(self, retry_count: int = 1) -> None:
         await capture_logs(
             self.client.logInterceptor,
             self.client.event,

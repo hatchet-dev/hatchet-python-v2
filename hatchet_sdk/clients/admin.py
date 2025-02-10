@@ -167,7 +167,7 @@ class AdminClient:
         )
 
     @tenacity_retry
-    async def arun_workflow(
+    async def aio_run_workflow(
         self,
         workflow_name: str,
         input: JSONSerializableDict,
@@ -182,7 +182,7 @@ class AdminClient:
         return await asyncio.to_thread(self.run_workflow, workflow_name, input, options)
 
     @tenacity_retry
-    async def arun_workflows(
+    async def aio_run_workflows(
         self,
         workflows: list[WorkflowRunDict],
         options: TriggerWorkflowOptions = TriggerWorkflowOptions(),
@@ -196,7 +196,7 @@ class AdminClient:
         return await asyncio.to_thread(self.run_workflows, workflows, options)
 
     @tenacity_retry
-    async def aput_workflow(
+    async def aio_put_workflow(
         self,
         name: str,
         workflow: CreateWorkflowVersionOpts,
@@ -211,7 +211,7 @@ class AdminClient:
         return await asyncio.to_thread(self.put_workflow, name, workflow, overrides)
 
     @tenacity_retry
-    async def aput_rate_limit(
+    async def aio_put_rate_limit(
         self,
         key: str,
         limit: int,
@@ -226,7 +226,7 @@ class AdminClient:
         return await asyncio.to_thread(self.put_rate_limit, key, limit, duration)
 
     @tenacity_retry
-    async def aschedule_workflow(
+    async def aio_schedule_workflow(
         self,
         name: str,
         schedules: list[Union[datetime, timestamp_pb2.Timestamp]],
