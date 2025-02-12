@@ -2,7 +2,6 @@ import asyncio
 import datetime
 import json
 from typing import Any, List, cast
-from uuid import uuid4
 
 import grpc
 from google.protobuf import timestamp_pb2
@@ -17,14 +16,6 @@ from hatchet_sdk.contracts.events_pb2 import (
     PutStreamEventRequest,
 )
 from hatchet_sdk.contracts.events_pb2_grpc import EventsServiceStub
-from hatchet_sdk.utils.serialization import flatten
-from hatchet_sdk.utils.tracing import (
-    OTEL_CARRIER_KEY,
-    create_carrier,
-    create_tracer,
-    inject_carrier_into_metadata,
-    parse_carrier_from_metadata,
-)
 from hatchet_sdk.utils.types import JSONSerializableDict
 
 from ..loader import ClientConfig
@@ -53,7 +44,6 @@ class PushEventOptions(BaseModel):
 
 class BulkPushEventOptions(BaseModel):
     namespace: str | None = None
-    otel_carrier: dict[str, str] = Field(default_factory=dict)
 
 
 class BulkPushEventWithMetadata(BaseModel):
@@ -67,7 +57,6 @@ class EventClient:
         self.client = client
         self.token = config.token
         self.namespace = config.namespace
-        self.otel_tracer = create_tracer(config=config)
 
     async def aio_push(
         self,
@@ -86,6 +75,7 @@ class EventClient:
     ) -> List[Event]:
         return await asyncio.to_thread(self.bulk_push, events=events, options=options)
 
+    ## IMPORTANT: Keep this method's signature in sync with the wrapper in the OTel instrumentor
     @tenacity_retry
     def push(
         self,
@@ -93,93 +83,65 @@ class EventClient:
         payload: dict[str, Any],
         options: PushEventOptions = PushEventOptions(),
     ) -> Event:
-        ctx = parse_carrier_from_metadata(options.additional_metadata)
+        namespace = options.namespace or self.namespace
+        namespaced_event_key = namespace + event_key
 
-        with self.otel_tracer.start_as_current_span(
-            "hatchet.push", context=ctx
-        ) as span:
-            carrier = create_carrier()
-            namespace = options.namespace or self.namespace
+        try:
+            meta = options.additional_metadata
+            meta_bytes = None if meta is None else json.dumps(meta)
+        except Exception as e:
+            raise ValueError(f"Error encoding meta: {e}")
 
-            namespaced_event_key = namespace + event_key
+        try:
+            payload_str = json.dumps(payload)
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"Error encoding payload: {e}")
 
-            try:
-                meta = inject_carrier_into_metadata(
-                    options.additional_metadata,
-                    carrier,
-                )
-                meta_bytes = None if meta is None else json.dumps(meta)
-            except Exception as e:
-                raise ValueError(f"Error encoding meta: {e}")
+        request = PushEventRequest(
+            key=namespaced_event_key,
+            payload=payload_str,
+            eventTimestamp=proto_timestamp_now(),
+            additionalMetadata=meta_bytes,
+        )
 
-            span.set_attributes(flatten(meta, parent_key="", separator="."))
+        return cast(Event, self.client.Push(request, metadata=get_metadata(self.token)))
 
-            try:
-                payload_str = json.dumps(payload)
-            except (TypeError, ValueError) as e:
-                raise ValueError(f"Error encoding payload: {e}")
-
-            request = PushEventRequest(
-                key=namespaced_event_key,
-                payload=payload_str,
-                eventTimestamp=proto_timestamp_now(),
-                additionalMetadata=meta_bytes,
-            )
-
-            span.add_event("Pushing event", attributes={"key": namespaced_event_key})
-
-            return cast(
-                Event, self.client.Push(request, metadata=get_metadata(self.token))
-            )
-
+    ## IMPORTANT: Keep this method's signature in sync with the wrapper in the OTel instrumentor
     @tenacity_retry
     def bulk_push(
         self,
         events: List[BulkPushEventWithMetadata],
-        options: BulkPushEventOptions,
+        options: BulkPushEventOptions = BulkPushEventOptions(),
     ) -> List[Event]:
         namespace = options.namespace or self.namespace
-        bulk_push_correlation_id = uuid4()
-
-        ctx = parse_carrier_from_metadata({OTEL_CARRIER_KEY: options.otel_carrier})
 
         bulk_events = []
         for event in events:
-            with self.otel_tracer.start_as_current_span(
-                "hatchet.bulk_push", context=ctx
-            ) as span:
-                carrier = create_carrier()
-                span.set_attribute(
-                    "bulk_push_correlation_id", str(bulk_push_correlation_id)
-                )
+            event_key = namespace + event.key
+            payload = event.payload
 
-                event_key = namespace + event.key
-                payload = event.payload
+            meta = event.additional_metadata
 
-                meta = inject_carrier_into_metadata(event.additional_metadata, carrier)
-                span.set_attributes(flatten(meta, parent_key="", separator="."))
+            try:
+                meta_str = json.dumps(meta)
+            except Exception as e:
+                raise ValueError(f"Error encoding meta: {e}")
 
-                try:
-                    meta_str = json.dumps(meta)
-                except Exception as e:
-                    raise ValueError(f"Error encoding meta: {e}")
+            try:
+                payload = json.dumps(payload)
+            except (TypeError, ValueError) as e:
+                raise ValueError(f"Error encoding payload: {e}")
 
-                try:
-                    payload = json.dumps(payload)
-                except (TypeError, ValueError) as e:
-                    raise ValueError(f"Error encoding payload: {e}")
-
-                request = PushEventRequest(
-                    key=event_key,
-                    payload=payload,
-                    eventTimestamp=proto_timestamp_now(),
-                    additionalMetadata=meta_str,
-                )
-                bulk_events.append(request)
+            request = PushEventRequest(
+                key=event_key,
+                payload=payload,
+                eventTimestamp=proto_timestamp_now(),
+                additionalMetadata=meta_str,
+            )
+            bulk_events.append(request)
 
         bulk_request = BulkPushEventRequest(events=bulk_events)
 
-        span.add_event("Pushing bulk events")
         response = self.client.BulkPush(bulk_request, metadata=get_metadata(self.token))
 
         return cast(

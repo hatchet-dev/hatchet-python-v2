@@ -27,17 +27,6 @@ class ClientTLSConfig(BaseSettings):
     server_name: str = ""
 
 
-class OTELConfig(BaseSettings):
-    model_config = create_settings_config(
-        env_prefix="HATCHET_CLIENT_OTEL_",
-    )
-
-    service_name: str | None = None
-    exporter_otlp_endpoint: str | None = None
-    exporter_otlp_headers: str | None = None
-    exporter_otlp_protocol: str | None = None
-
-
 class HealthcheckConfig(BaseSettings):
     model_config = create_settings_config(
         env_prefix="HATCHET_CLIENT_WORKER_HEALTHCHECK_",
@@ -64,7 +53,6 @@ class ClientConfig(BaseSettings):
     namespace: str = ""
 
     tls_config: ClientTLSConfig = Field(default_factory=lambda: ClientTLSConfig())
-    otel: OTELConfig = Field(default_factory=lambda: OTELConfig())
     healthcheck: HealthcheckConfig = Field(default_factory=lambda: HealthcheckConfig())
 
     listener_v2_timeout: int | None = None
