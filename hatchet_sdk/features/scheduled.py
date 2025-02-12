@@ -54,7 +54,6 @@ class ScheduledClient:
             _client (Client): The client instance to be used for REST interactions.
         """
         self._client = _client
-        self.aio: "ScheduledClientAsync" = ScheduledClientAsync(_client)
 
     def create(
         self,
@@ -148,27 +147,7 @@ class ScheduledClient:
             else scheduled
         )
 
-
-class ScheduledClientAsync:
-    """
-    Asynchronous client for managing scheduled workflows.
-
-    Attributes:
-        _client (Client): The underlying client used to interact with the REST API asynchronously.
-    """
-
-    _client: Client
-
-    def __init__(self, _client: Client) -> None:
-        """
-        Initializes the ScheduledClientAsync with a given Client instance.
-
-        Args:
-            _client (Client): The client instance to be used for asynchronous REST interactions.
-        """
-        self._client = _client
-
-    async def create(
+    async def aio_create(
         self,
         workflow_name: str,
         trigger_at: datetime.datetime,
@@ -191,7 +170,7 @@ class ScheduledClientAsync:
             workflow_name, trigger_at, input, additional_metadata
         )
 
-    async def delete(self, scheduled: Union[str, ScheduledWorkflows]) -> None:
+    async def aio_delete(self, scheduled: Union[str, ScheduledWorkflows]) -> None:
         """
         Deletes a scheduled workflow asynchronously.
 
@@ -204,7 +183,7 @@ class ScheduledClientAsync:
             else scheduled
         )
 
-    async def list(
+    async def aio_list(
         self,
         offset: int | None = None,
         limit: int | None = None,
@@ -236,7 +215,7 @@ class ScheduledClientAsync:
             order_by_direction=order_by_direction,
         )
 
-    async def get(
+    async def aio_get(
         self, scheduled: Union[str, ScheduledWorkflows]
     ) -> ScheduledWorkflows:
         """
