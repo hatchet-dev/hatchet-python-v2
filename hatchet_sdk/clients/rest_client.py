@@ -85,7 +85,7 @@ Y = TypeVar("Y")
 S = TypeVar("S")
 
 
-class AsyncRestApi:
+class RestApi:
     def __init__(self, host: str, api_key: str, tenant_id: str):
         self.tenant_id = tenant_id
 
@@ -100,6 +100,13 @@ class AsyncRestApi:
         self._step_run_api: StepRunApi | None = None
         self._event_api: EventApi | None = None
         self._log_api: LogApi | None = None
+
+        self._loop = asyncio.new_event_loop()
+        self._thread = threading.Thread(target=self._run_event_loop, daemon=True)
+        self._thread.start()
+
+        # Register the cleanup method to be called on exit
+        atexit.register(self._cleanup)
 
     @property
     def api_client(self) -> ApiClient:
@@ -142,17 +149,17 @@ class AsyncRestApi:
         if self._api_client is not None:
             await self._api_client.close()
 
-    async def workflow_list(self) -> WorkflowList:
+    async def aio_list_workflows(self) -> WorkflowList:
         return await self.workflow_api.workflow_list(
             tenant=self.tenant_id,
         )
 
-    async def workflow_get(self, workflow_id: str) -> Workflow:
+    async def aio_get_workflow(self, workflow_id: str) -> Workflow:
         return await self.workflow_api.workflow_get(
             workflow=workflow_id,
         )
 
-    async def workflow_version_get(
+    async def aio_get_workflow_version(
         self, workflow_id: str, version: str | None = None
     ) -> WorkflowVersion:
         return await self.workflow_api.workflow_version_get(
@@ -160,7 +167,7 @@ class AsyncRestApi:
             version=version,
         )
 
-    async def workflow_run_list(
+    async def aio_list_workflow_runs(
         self,
         workflow_id: str | None = None,
         offset: int | None = None,
@@ -189,13 +196,13 @@ class AsyncRestApi:
             order_by_direction=order_by_direction,
         )
 
-    async def workflow_run_get(self, workflow_run_id: str) -> WorkflowRun:
+    async def aio_get_workflow_run(self, workflow_run_id: str) -> WorkflowRun:
         return await self.workflow_api.workflow_run_get(
             tenant=self.tenant_id,
             workflow_run=workflow_run_id,
         )
 
-    async def workflow_run_replay(
+    async def aio_replay_workflow_run(
         self, workflow_run_ids: list[str]
     ) -> ReplayWorkflowRunsResponse:
         return await self.workflow_run_api.workflow_run_update_replay(
@@ -205,7 +212,7 @@ class AsyncRestApi:
             ),
         )
 
-    async def workflow_run_cancel(
+    async def aio_cancel_workflow_run(
         self, workflow_run_id: str
     ) -> EventUpdateCancel200Response:
         return await self.workflow_run_api.workflow_run_cancel(
@@ -215,7 +222,7 @@ class AsyncRestApi:
             ),
         )
 
-    async def workflow_run_bulk_cancel(
+    async def aio_bulk_cancel_workflow_runs(
         self, workflow_run_ids: list[str]
     ) -> EventUpdateCancel200Response:
         return await self.workflow_run_api.workflow_run_cancel(
@@ -225,7 +232,7 @@ class AsyncRestApi:
             ),
         )
 
-    async def workflow_run_create(
+    async def aio_create_workflow_run(
         self,
         workflow_id: str,
         input: JSONSerializableDict,
@@ -241,7 +248,7 @@ class AsyncRestApi:
             ),
         )
 
-    async def cron_create(
+    async def aio_create_cron(
         self,
         workflow_name: str,
         cron_name: str,
@@ -260,13 +267,13 @@ class AsyncRestApi:
             ),
         )
 
-    async def cron_delete(self, cron_trigger_id: str) -> None:
+    async def aio_delete_cron(self, cron_trigger_id: str) -> None:
         await self.workflow_api.workflow_cron_delete(
             tenant=self.tenant_id,
             cron_workflow=cron_trigger_id,
         )
 
-    async def cron_list(
+    async def aio_list_crons(
         self,
         offset: StrictInt | None = None,
         limit: StrictInt | None = None,
@@ -285,13 +292,13 @@ class AsyncRestApi:
             order_by_direction=order_by_direction,
         )
 
-    async def cron_get(self, cron_trigger_id: str) -> CronWorkflows:
+    async def aio_get_cron(self, cron_trigger_id: str) -> CronWorkflows:
         return await self.workflow_api.workflow_cron_get(
             tenant=self.tenant_id,
             cron_workflow=cron_trigger_id,
         )
 
-    async def schedule_create(
+    async def aio_create_schedule(
         self,
         name: str,
         trigger_at: datetime.datetime,
@@ -308,13 +315,13 @@ class AsyncRestApi:
             ),
         )
 
-    async def schedule_delete(self, scheduled_trigger_id: str) -> None:
+    async def aio_delete_schedule(self, scheduled_trigger_id: str) -> None:
         await self.workflow_api.workflow_scheduled_delete(
             tenant=self.tenant_id,
             scheduled_workflow_run=scheduled_trigger_id,
         )
 
-    async def schedule_list(
+    async def aio_list_schedule(
         self,
         offset: StrictInt | None = None,
         limit: StrictInt | None = None,
@@ -337,13 +344,13 @@ class AsyncRestApi:
             order_by_direction=order_by_direction,
         )
 
-    async def schedule_get(self, scheduled_trigger_id: str) -> ScheduledWorkflows:
+    async def aio_get_schedule(self, scheduled_trigger_id: str) -> ScheduledWorkflows:
         return await self.workflow_api.workflow_scheduled_get(
             tenant=self.tenant_id,
             scheduled_workflow_run=scheduled_trigger_id,
         )
 
-    async def list_logs(
+    async def aio_list_logs(
         self,
         step_run_id: str,
         offset: int | None = None,
@@ -363,7 +370,7 @@ class AsyncRestApi:
             order_by_direction=order_by_direction,
         )
 
-    async def events_list(
+    async def aio_list_events(
         self,
         offset: int | None = None,
         limit: int | None = None,
@@ -388,7 +395,7 @@ class AsyncRestApi:
             additional_metadata=additional_metadata,
         )
 
-    async def events_replay(self, event_ids: list[str] | EventList) -> EventList:
+    async def aio_replay_events(self, event_ids: list[str] | EventList) -> EventList:
         if isinstance(event_ids, EventList):
             rows = event_ids.rows or []
             event_ids = [r.metadata.id for r in rows]
@@ -398,24 +405,11 @@ class AsyncRestApi:
             replay_event_request=ReplayEventRequest(eventIds=event_ids),
         )
 
-
-class RestApi:
-    def __init__(self, host: str, api_key: str, tenant_id: str):
-        self._loop = asyncio.new_event_loop()
-        self._thread = threading.Thread(target=self._run_event_loop, daemon=True)
-        self._thread.start()
-
-        # Initialize AsyncRestApi inside the event loop to ensure an active loop
-        self.aio = AsyncRestApi(host, api_key, tenant_id)
-
-        # Register the cleanup method to be called on exit
-        atexit.register(self._cleanup)
-
     def _cleanup(self) -> None:
         """
         Stop the running thread and clean up the event loop.
         """
-        self._run_coroutine(self.aio.close())
+        self._run_coroutine(self.close())
         self._loop.call_soon_threadsafe(self._loop.stop)
         self._thread.join()
 
@@ -434,15 +428,15 @@ class RestApi:
         return future.result()
 
     def workflow_list(self) -> WorkflowList:
-        return self._run_coroutine(self.aio.workflow_list())
+        return self._run_coroutine(self.aio_list_workflows())
 
     def workflow_get(self, workflow_id: str) -> Workflow:
-        return self._run_coroutine(self.aio.workflow_get(workflow_id))
+        return self._run_coroutine(self.aio_get_workflow(workflow_id))
 
     def workflow_version_get(
         self, workflow_id: str, version: str | None = None
     ) -> WorkflowVersion:
-        return self._run_coroutine(self.aio.workflow_version_get(workflow_id, version))
+        return self._run_coroutine(self.aio_get_workflow_version(workflow_id, version))
 
     def workflow_run_list(
         self,
@@ -459,7 +453,7 @@ class RestApi:
         order_by_direction: WorkflowRunOrderByDirection | None = None,
     ) -> WorkflowRunList:
         return self._run_coroutine(
-            self.aio.workflow_run_list(
+            self.aio_list_workflow_runs(
                 workflow_id=workflow_id,
                 offset=offset,
                 limit=limit,
@@ -475,15 +469,15 @@ class RestApi:
         )
 
     def workflow_run_get(self, workflow_run_id: str) -> WorkflowRun:
-        return self._run_coroutine(self.aio.workflow_run_get(workflow_run_id))
+        return self._run_coroutine(self.aio_get_workflow_run(workflow_run_id))
 
     def workflow_run_cancel(self, workflow_run_id: str) -> EventUpdateCancel200Response:
-        return self._run_coroutine(self.aio.workflow_run_cancel(workflow_run_id))
+        return self._run_coroutine(self.aio_cancel_workflow_run(workflow_run_id))
 
     def workflow_run_bulk_cancel(
         self, workflow_run_ids: list[str]
     ) -> EventUpdateCancel200Response:
-        return self._run_coroutine(self.aio.workflow_run_bulk_cancel(workflow_run_ids))
+        return self._run_coroutine(self.aio_bulk_cancel_workflow_runs(workflow_run_ids))
 
     def workflow_run_create(
         self,
@@ -493,7 +487,7 @@ class RestApi:
         additional_metadata: JSONSerializableDict = {},
     ) -> WorkflowRun:
         return self._run_coroutine(
-            self.aio.workflow_run_create(
+            self.aio_create_workflow_run(
                 workflow_id, input, version, additional_metadata
             )
         )
@@ -507,13 +501,13 @@ class RestApi:
         additional_metadata: JSONSerializableDict,
     ) -> CronWorkflows:
         return self._run_coroutine(
-            self.aio.cron_create(
+            self.aio_create_cron(
                 workflow_name, cron_name, expression, input, additional_metadata
             )
         )
 
     def cron_delete(self, cron_trigger_id: str) -> None:
-        self._run_coroutine(self.aio.cron_delete(cron_trigger_id))
+        self._run_coroutine(self.aio_delete_cron(cron_trigger_id))
 
     def cron_list(
         self,
@@ -525,7 +519,7 @@ class RestApi:
         order_by_direction: WorkflowRunOrderByDirection | None = None,
     ) -> CronWorkflowsList:
         return self._run_coroutine(
-            self.aio.cron_list(
+            self.aio_list_crons(
                 offset,
                 limit,
                 workflow_id,
@@ -536,7 +530,7 @@ class RestApi:
         )
 
     def cron_get(self, cron_trigger_id: str) -> CronWorkflows:
-        return self._run_coroutine(self.aio.cron_get(cron_trigger_id))
+        return self._run_coroutine(self.aio_get_cron(cron_trigger_id))
 
     def schedule_create(
         self,
@@ -546,13 +540,13 @@ class RestApi:
         additional_metadata: JSONSerializableDict,
     ) -> ScheduledWorkflows:
         return self._run_coroutine(
-            self.aio.schedule_create(
+            self.aio_create_schedule(
                 workflow_name, trigger_at, input, additional_metadata
             )
         )
 
     def schedule_delete(self, scheduled_trigger_id: str) -> None:
-        self._run_coroutine(self.aio.schedule_delete(scheduled_trigger_id))
+        self._run_coroutine(self.aio_delete_schedule(scheduled_trigger_id))
 
     def schedule_list(
         self,
@@ -564,7 +558,7 @@ class RestApi:
         order_by_direction: WorkflowRunOrderByDirection | None = None,
     ) -> ScheduledWorkflowsList:
         return self._run_coroutine(
-            self.aio.schedule_list(
+            self.aio_list_schedule(
                 offset,
                 limit,
                 workflow_id,
@@ -575,7 +569,7 @@ class RestApi:
         )
 
     def schedule_get(self, scheduled_trigger_id: str) -> ScheduledWorkflows:
-        return self._run_coroutine(self.aio.schedule_get(scheduled_trigger_id))
+        return self._run_coroutine(self.aio_get_schedule(scheduled_trigger_id))
 
     def list_logs(
         self,
@@ -588,7 +582,7 @@ class RestApi:
         order_by_direction: LogLineOrderByDirection | None = None,
     ) -> LogLineList:
         return self._run_coroutine(
-            self.aio.list_logs(
+            self.aio_list_logs(
                 step_run_id=step_run_id,
                 offset=offset,
                 limit=limit,
@@ -612,7 +606,7 @@ class RestApi:
         additional_metadata: list[str] | None = None,
     ) -> EventList:
         return self._run_coroutine(
-            self.aio.events_list(
+            self.aio_list_events(
                 offset=offset,
                 limit=limit,
                 keys=keys,
@@ -626,4 +620,4 @@ class RestApi:
         )
 
     def events_replay(self, event_ids: list[str] | EventList) -> EventList:
-        return self._run_coroutine(self.aio.events_replay(event_ids))
+        return self._run_coroutine(self.aio_replay_events(event_ids))

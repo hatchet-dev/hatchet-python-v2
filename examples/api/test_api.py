@@ -17,6 +17,6 @@ async def test_list_workflows(hatchet: Hatchet, worker: Worker) -> None:
 @pytest.mark.parametrize("worker", ["concurrency_limit_rr"], indirect=True)
 @pytest.mark.asyncio(scope="session")
 async def test_async_list_workflows(aiohatchet: Hatchet, worker: Worker) -> None:
-    workflows = await aiohatchet.rest.aio.workflow_list()
+    workflows = await aiohatchet.rest.aio_list_workflows()
 
     assert len(workflows.rows or []) != 0
