@@ -39,7 +39,7 @@ class GetActionListenerRequest:
     worker_name: str
     services: list[str]
     actions: list[str]
-    max_runs: Optional[int] = None
+    max_runs: int | None = None
     _labels: dict[str, str | int] = field(default_factory=dict)
 
     labels: dict[str, WorkerLabels] = field(init=False)

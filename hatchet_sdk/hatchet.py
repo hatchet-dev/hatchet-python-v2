@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import TYPE_CHECKING, Any, Callable, Optional, Type, TypeVar, cast
+from typing import TYPE_CHECKING, Any, Callable, Type, TypeVar, cast
 
 from hatchet_sdk.client import Client, new_client, new_client_raw
 from hatchet_sdk.clients.admin import AdminClient
@@ -77,7 +77,7 @@ class Hatchet:
     def __init__(
         self,
         debug: bool = False,
-        client: Optional[Client] = None,
+        client: Client | None = None,
         config: ClientConfig = ClientConfig(),
     ):
         """

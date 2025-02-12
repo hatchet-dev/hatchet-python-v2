@@ -102,9 +102,9 @@ class ScheduledClient:
 
     def list(
         self,
-        offset: Optional[int] = None,
-        limit: Optional[int] = None,
-        workflow_id: Optional[str] = None,
+        offset: int | None = None,
+        limit: int | None = None,
+        workflow_id: str | None = None,
         additional_metadata: Optional[List[str]] = None,
         order_by_field: Optional[CronWorkflowsOrderByField] = None,
         order_by_direction: Optional[WorkflowRunOrderByDirection] = None,
@@ -113,9 +113,9 @@ class ScheduledClient:
         Retrieves a list of scheduled workflows based on provided filters.
 
         Args:
-            offset (Optional[int]): The starting point for the list.
-            limit (Optional[int]): The maximum number of items to return.
-            workflow_id (Optional[str]): Filter by specific workflow ID.
+            offset (int | None): The starting point for the list.
+            limit (int | None): The maximum number of items to return.
+            workflow_id (str | None): Filter by specific workflow ID.
             additional_metadata (Optional[List[str]]): Filter by additional metadata keys (e.g. ["key1:value1", "key2:value2"]).
             order_by_field (Optional[CronWorkflowsOrderByField]): Field to order the results by.
             order_by_direction (Optional[WorkflowRunOrderByDirection]): Direction to order the results.
@@ -206,9 +206,9 @@ class ScheduledClientAsync:
 
     async def list(
         self,
-        offset: Optional[int] = None,
-        limit: Optional[int] = None,
-        workflow_id: Optional[str] = None,
+        offset: int | None = None,
+        limit: int | None = None,
+        workflow_id: str | None = None,
         additional_metadata: Optional[List[str]] = None,
         order_by_field: Optional[ScheduledWorkflowsOrderByField] = None,
         order_by_direction: Optional[WorkflowRunOrderByDirection] = None,
@@ -217,9 +217,9 @@ class ScheduledClientAsync:
         Retrieves a list of scheduled workflows based on provided filters asynchronously.
 
         Args:
-            offset (Optional[int]): The starting point for the list.
-            limit (Optional[int]): The maximum number of items to return.
-            workflow_id (Optional[str]): Filter by specific workflow ID.
+            offset (int | None): The starting point for the list.
+            limit (int | None): The maximum number of items to return.
+            workflow_id (str | None): Filter by specific workflow ID.
             additional_metadata (Optional[List[str]]): Filter by additional metadata keys (e.g. ["key1:value1", "key2:value2"]).
             order_by_field (Optional[CronWorkflowsOrderByField]): Field to order the results by.
             order_by_direction (Optional[WorkflowRunOrderByDirection]): Direction to order the results.
