@@ -31,10 +31,10 @@ from hatchet_sdk.worker.runner.run_loop_manager import (
     STOP_LOOP_TYPE,
     WorkerActionRunLoopManager,
 )
-from hatchet_sdk.workflow import Step
+from hatchet_sdk.workflow import BaseWorkflow, Step, StepType
 
 if TYPE_CHECKING:
-    from hatchet_sdk.workflow import BaseWorkflow
+    from hatchet_sdk.hatchet import Function
 
 T = TypeVar("T")
 
@@ -134,7 +134,7 @@ class Worker:
 
         self.register_workflow(Workflow())
 
-    def register_workflow(self, workflow: Union["BaseWorkflowImpl", Any]) -> None:
+    def register_workflow(self, workflow: Union["BaseWorkflow", Any]) -> None:
         namespace = self.client.config.namespace
 
         try:

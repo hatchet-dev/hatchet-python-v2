@@ -1,7 +1,4 @@
-from hatchet_sdk import BaseWorkflow, Context, Hatchet
-
-from hatchet_sdk import Context
-from hatchet_sdk.v2 import Hatchet
+from hatchet_sdk import Context, Hatchet
 
 hatchet = Hatchet(debug=True)
 
