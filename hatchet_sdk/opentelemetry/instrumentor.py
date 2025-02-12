@@ -129,7 +129,7 @@ class HatchetInstrumentor(BaseInstrumentor):  # type: ignore[misc]
 
         wrap_function_wrapper(
             hatchet_sdk,
-            "clients.admin.AdminClientAioImpl.run_workflow",
+            "clients.admin.AdminClient.aio_run_workflow",
             self._wrap_async_run_workflow,
         )
 
@@ -141,7 +141,7 @@ class HatchetInstrumentor(BaseInstrumentor):  # type: ignore[misc]
 
         wrap_function_wrapper(
             hatchet_sdk,
-            "clients.admin.AdminClientAioImpl.run_workflows",
+            "clients.admin.AdminClient.aio_run_workflows",
             self._wrap_async_run_workflows,
         )
 
@@ -318,6 +318,6 @@ class HatchetInstrumentor(BaseInstrumentor):  # type: ignore[misc]
         unwrap(hatchet_sdk, "clients.events.EventClient.push")
         unwrap(hatchet_sdk, "clients.events.EventClient.bulk_push")
         unwrap(hatchet_sdk, "clients.admin.AdminClient.run_workflow")
-        unwrap(hatchet_sdk, "clients.admin.AdminClientAioImpl.run_workflow")
+        unwrap(hatchet_sdk, "clients.admin.AdminClient.aio_run_workflow")
         unwrap(hatchet_sdk, "clients.admin.AdminClient.run_workflows")
-        unwrap(hatchet_sdk, "clients.admin.AdminClientAioImpl.run_workflows")
+        unwrap(hatchet_sdk, "clients.admin.AdminClient.aio_run_workflows")
