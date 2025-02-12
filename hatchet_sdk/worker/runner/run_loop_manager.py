@@ -67,7 +67,6 @@ class WorkerActionRunLoopManager:
     def cleanup(self) -> None:
         self.killing = True
 
-        ## TODO: The action queue is a queue of `Action`, so I don't think this will work
         self.action_queue.put(STOP_LOOP)
 
     async def wait_for_tasks(self) -> None:
@@ -89,7 +88,6 @@ class WorkerActionRunLoopManager:
         logger.debug(f"'{self.name}' waiting for {list(self.action_registry.keys())}")
         while not self.killing:
             action = await self._get_action()
-            ## TODO: This is a queue of `Action`, so I don't think this will work
             if action == STOP_LOOP:
                 logger.debug("stopping action runner loop...")
                 break

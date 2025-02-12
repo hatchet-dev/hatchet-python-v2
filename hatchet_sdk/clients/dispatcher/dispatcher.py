@@ -133,7 +133,6 @@ class DispatcherClient:
             eventPayload=payload,
         )
 
-        ## TODO: What does this return?
         return cast(
             grpc.aio.UnaryUnaryCall[GroupKeyActionEvent, ActionEventResponse],
             await self.aio_client.SendGroupKeyActionEvent(

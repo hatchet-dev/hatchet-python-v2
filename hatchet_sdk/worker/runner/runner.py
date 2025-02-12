@@ -198,7 +198,6 @@ class Runner:
 
         return inner_callback
 
-    ## TODO: Stricter type hinting here
     def thread_action_func(
         self, context: Context, step: "Step[T]", action: Action
     ) -> T:
@@ -212,7 +211,6 @@ class Runner:
 
         return step.call(context)
 
-    ## TODO: Stricter type hinting here
     # We wrap all actions in an async func
     async def async_wrapped_action_func(
         self,
