@@ -24,7 +24,6 @@ from hatchet_sdk.contracts.dispatcher_pb2 import (
 from hatchet_sdk.contracts.dispatcher_pb2_grpc import DispatcherStub
 from hatchet_sdk.logger import logger
 from hatchet_sdk.utils.backoff import exp_backoff_sleep
-from hatchet_sdk.utils.serialization import flatten
 from hatchet_sdk.utils.types import JSONSerializableDict
 
 from ...loader import ClientConfig
@@ -100,7 +99,7 @@ class Action:
             "hatchet.parent_workflow_run_id": self.parent_workflow_run_id,
             "hatchet.child_workflow_index": self.child_workflow_index,
             "hatchet.child_workflow_key": self.child_workflow_key,
-            "hatchet.action_payload": self.action_payload,
+            "hatchet.action_payload": json.dumps(self.action_payload, default=str),
             "hatchet.workflow_name": self.job_name,
             "hatchet.action_name": self.action_id,
             "hatchet.get_group_key_run_id": self.get_group_key_run_id,

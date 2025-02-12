@@ -23,7 +23,7 @@ def create_additional_metadata() -> dict[str, str]:
 
 
 def create_push_options() -> PushEventOptions:
-    return {"additional_metadata": create_additional_metadata()}
+    return PushEventOptions(additional_metadata=create_additional_metadata())
 
 
 @pytest.mark.parametrize("worker", ["otel"], indirect=True)
@@ -47,7 +47,7 @@ def test_push_event(hatchet: Hatchet, worker: Worker) -> None:
 @pytest.mark.asyncio()
 @pytest.mark.parametrize("worker", ["otel"], indirect=True)
 async def test_run_workflow(aiohatchet: Hatchet, worker: Worker) -> None:
-    with tracer.start_as_current_span("run_workflow") as span:
+    with tracer.start_as_current_span("run_workflow"):
         workflow = aiohatchet.admin.run_workflow(
             "OTelWorkflow",
             {"test": "test"},

@@ -1,15 +1,20 @@
 from examples.opentelemetry_instrumentation.client import hatchet
 from examples.opentelemetry_instrumentation.tracer import trace_provider
-from hatchet_sdk import Context
+from hatchet_sdk import BaseWorkflow, Context
 from hatchet_sdk.opentelemetry.instrumentor import HatchetInstrumentor
 
 HatchetInstrumentor(
     tracer_provider=trace_provider,
 ).instrument()
 
+wf = hatchet.declare_workflow(
+    on_events=["otel:event"],
+)
 
-@hatchet.workflow(on_events=["otel:event"])
-class OTelWorkflow:
+
+class OTelWorkflow(BaseWorkflow):
+    config = wf.config
+
     @hatchet.step()
     def your_spans_are_children_of_hatchet_span(
         self, context: Context

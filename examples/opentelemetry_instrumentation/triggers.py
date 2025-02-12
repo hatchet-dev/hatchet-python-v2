@@ -2,8 +2,8 @@ import asyncio
 
 from examples.opentelemetry_instrumentation.client import hatchet
 from examples.opentelemetry_instrumentation.tracer import trace_provider
-from hatchet_sdk.clients.admin import TriggerWorkflowOptions
-from hatchet_sdk.clients.events import PushEventOptions
+from hatchet_sdk.clients.admin import TriggerWorkflowOptions, WorkflowRunDict
+from hatchet_sdk.clients.events import BulkPushEventWithMetadata, PushEventOptions
 from hatchet_sdk.opentelemetry.instrumentor import HatchetInstrumentor
 
 instrumentor = HatchetInstrumentor(tracer_provider=trace_provider)
@@ -17,12 +17,12 @@ def create_additional_metadata() -> dict[str, str]:
 
 
 def create_push_options() -> PushEventOptions:
-    return {"additional_metadata": create_additional_metadata()}
+    return PushEventOptions(additional_metadata=create_additional_metadata())
 
 
 def push_event() -> None:
     print("\npush_event")
-    with tracer.start_as_current_span("push_event") as span:
+    with tracer.start_as_current_span("push_event"):
         hatchet.event.push(
             "otel:event",
             {"test": "test"},
@@ -32,53 +32,53 @@ def push_event() -> None:
 
 async def async_push_event() -> None:
     print("\nasync_push_event")
-    with tracer.start_as_current_span("async_push_event") as span:
-        await hatchet.event.async_push(
+    with tracer.start_as_current_span("async_push_event"):
+        await hatchet.event.aio_push(
             "otel:event", {"test": "test"}, options=create_push_options()
         )
 
 
 def bulk_push_event() -> None:
     print("\nbulk_push_event")
-    with tracer.start_as_current_span("bulk_push_event") as span:
+    with tracer.start_as_current_span("bulk_push_event"):
         hatchet.event.bulk_push(
             [
-                {
-                    "additional_metadata": create_additional_metadata(),
-                    "key": "otel:event",
-                    "payload": {"test": "test 1"},
-                },
-                {
-                    "additional_metadata": create_additional_metadata(),
-                    "key": "otel:event",
-                    "payload": {"test": "test 2"},
-                },
+                BulkPushEventWithMetadata(
+                    key="otel:event",
+                    payload={"test": "test 1"},
+                    additional_metadata=create_additional_metadata(),
+                ),
+                BulkPushEventWithMetadata(
+                    key="otel:event",
+                    payload={"test": "test 2"},
+                    additional_metadata=create_additional_metadata(),
+                ),
             ],
         )
 
 
 async def async_bulk_push_event() -> None:
     print("\nasync_bulk_push_event")
-    with tracer.start_as_current_span("bulk_push_event") as span:
-        await hatchet.event.async_bulk_push(
+    with tracer.start_as_current_span("bulk_push_event"):
+        await hatchet.event.aio_bulk_push(
             [
-                {
-                    "additional_metadata": create_additional_metadata(),
-                    "key": "otel:event",
-                    "payload": {"test": "test 1"},
-                },
-                {
-                    "additional_metadata": create_additional_metadata(),
-                    "key": "otel:event",
-                    "payload": {"test": "test 2"},
-                },
+                BulkPushEventWithMetadata(
+                    key="otel:event",
+                    payload={"test": "test 1"},
+                    additional_metadata=create_additional_metadata(),
+                ),
+                BulkPushEventWithMetadata(
+                    key="otel:event",
+                    payload={"test": "test 2"},
+                    additional_metadata=create_additional_metadata(),
+                ),
             ],
         )
 
 
 def run_workflow() -> None:
     print("\nrun_workflow")
-    with tracer.start_as_current_span("run_workflow") as span:
+    with tracer.start_as_current_span("run_workflow"):
         hatchet.admin.run_workflow(
             "OTelWorkflow",
             {"test": "test"},
@@ -90,8 +90,8 @@ def run_workflow() -> None:
 
 async def async_run_workflow() -> None:
     print("\nasync_run_workflow")
-    with tracer.start_as_current_span("async_run_workflow") as span:
-        await hatchet.admin.aio.run_workflow(
+    with tracer.start_as_current_span("async_run_workflow"):
+        await hatchet.admin.aio_run_workflow(
             "OTelWorkflow",
             {"test": "test"},
             options=TriggerWorkflowOptions(
@@ -102,46 +102,46 @@ async def async_run_workflow() -> None:
 
 def run_workflows() -> None:
     print("\nrun_workflows")
-    with tracer.start_as_current_span("run_workflows") as span:
+    with tracer.start_as_current_span("run_workflows"):
         hatchet.admin.run_workflows(
             [
-                {
-                    "workflow_name": "OTelWorkflow",
-                    "input": {"test": "test"},
-                    "options": TriggerWorkflowOptions(
+                WorkflowRunDict(
+                    workflow_name="OTelWorkflow",
+                    input={"test": "test"},
+                    options=TriggerWorkflowOptions(
                         additional_metadata=create_additional_metadata()
                     ),
-                },
-                {
-                    "workflow_name": "OTelWorkflow",
-                    "input": {"test": "test 2"},
-                    "options": TriggerWorkflowOptions(
+                ),
+                WorkflowRunDict(
+                    workflow_name="OTelWorkflow",
+                    input={"test": "test 2"},
+                    options=TriggerWorkflowOptions(
                         additional_metadata=create_additional_metadata()
                     ),
-                },
+                ),
             ],
         )
 
 
 async def async_run_workflows() -> None:
     print("\nasync_run_workflows")
-    with tracer.start_as_current_span("async_run_workflows") as span:
-        await hatchet.admin.aio.run_workflows(
+    with tracer.start_as_current_span("async_run_workflows"):
+        await hatchet.admin.aio_run_workflows(
             [
-                {
-                    "workflow_name": "OTelWorkflow",
-                    "input": {"test": "test"},
-                    "options": TriggerWorkflowOptions(
+                WorkflowRunDict(
+                    workflow_name="OTelWorkflow",
+                    input={"test": "test"},
+                    options=TriggerWorkflowOptions(
                         additional_metadata=create_additional_metadata()
                     ),
-                },
-                {
-                    "workflow_name": "OTelWorkflow",
-                    "input": {"test": "test 2"},
-                    "options": TriggerWorkflowOptions(
+                ),
+                WorkflowRunDict(
+                    workflow_name="OTelWorkflow",
+                    input={"test": "test 2"},
+                    options=TriggerWorkflowOptions(
                         additional_metadata=create_additional_metadata()
                     ),
-                },
+                ),
             ],
         )
 
