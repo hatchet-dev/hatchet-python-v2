@@ -40,7 +40,7 @@ class ScheduleTriggerWorkflowOptions(BaseModel):
 
 class ChildTriggerWorkflowOptions(BaseModel):
     additional_metadata: JSONSerializableDict = Field(default_factory=dict)
-    sticky: bool | None = None
+    sticky: bool = False
 
 
 class ChildWorkflowRunDict(BaseModel):
@@ -69,8 +69,6 @@ class DedupeViolationErr(Exception):
 
 
 class AdminClient:
-    pooled_workflow_listener: PooledWorkflowRunListener | None = None
-
     def __init__(self, config: ClientConfig):
         conn = new_conn(config, False)
         self.config = config
@@ -78,6 +76,8 @@ class AdminClient:
         self.token = config.token
         self.listener_client = new_listener(config)
         self.namespace = config.namespace
+
+        self.pooled_workflow_listener: PooledWorkflowRunListener | None = None
 
     def _prepare_workflow_request(
         self, workflow_name: str, input: dict[str, Any], options: TriggerWorkflowOptions
@@ -110,24 +110,29 @@ class AdminClient:
         workflow: CreateWorkflowVersionOpts,
         overrides: CreateWorkflowVersionOpts | None = None,
     ) -> PutWorkflowRequest:
-        try:
-            opts: CreateWorkflowVersionOpts
+        if overrides is not None:
+            workflow.MergeFrom(overrides)
 
-            if isinstance(workflow, CreateWorkflowVersionOpts):
-                opts = workflow
-            else:
-                opts = workflow.get_create_opts(self.client.config.namespace)
+        workflow.name = name
 
-            if overrides is not None:
-                opts.MergeFrom(overrides)
+        return PutWorkflowRequest(
+            opts=workflow,
+        )
 
-            opts.name = name
-
-            return PutWorkflowRequest(
-                opts=opts,
+    def _parse_schedule(
+        self, schedule: datetime | timestamp_pb2.Timestamp
+    ) -> timestamp_pb2.Timestamp:
+        if isinstance(schedule, datetime):
+            t = schedule.timestamp()
+            seconds = int(t)
+            nanos = int(t % 1 * 1e9)
+            return timestamp_pb2.Timestamp(seconds=seconds, nanos=nanos)
+        elif isinstance(schedule, timestamp_pb2.Timestamp):
+            return schedule
+        else:
+            raise ValueError(
+                "Invalid schedule type. Must be datetime or timestamp_pb2.Timestamp."
             )
-        except grpc.RpcError as e:
-            raise ValueError(f"Could not put workflow: {e}")
 
     def _prepare_schedule_workflow_request(
         self,
@@ -136,24 +141,9 @@ class AdminClient:
         input: JSONSerializableDict = {},
         options: ScheduleTriggerWorkflowOptions = ScheduleTriggerWorkflowOptions(),
     ) -> ScheduleWorkflowRequest:
-        timestamp_schedules = []
-        for schedule in schedules:
-            if isinstance(schedule, datetime):
-                t = schedule.timestamp()
-                seconds = int(t)
-                nanos = int(t % 1 * 1e9)
-                timestamp = timestamp_pb2.Timestamp(seconds=seconds, nanos=nanos)
-                timestamp_schedules.append(timestamp)
-            elif isinstance(schedule, timestamp_pb2.Timestamp):
-                timestamp_schedules.append(schedule)
-            else:
-                raise ValueError(
-                    "Invalid schedule type. Must be datetime or timestamp_pb2.Timestamp."
-                )
-
         return ScheduleWorkflowRequest(
             name=name,
-            schedules=timestamp_schedules,
+            schedules=[self._parse_schedule(schedule) for schedule in schedules],
             input=json.dumps(input),
             **options.model_dump(),
         )
@@ -318,9 +308,12 @@ class AdminClient:
 
             request = self._prepare_workflow_request(workflow_name, input, options)
 
-            resp: TriggerWorkflowResponse = self.client.TriggerWorkflow(
-                request,
-                metadata=get_metadata(self.token),
+            resp = cast(
+                TriggerWorkflowResponse,
+                self.client.TriggerWorkflow(
+                    request,
+                    metadata=get_metadata(self.token),
+                ),
             )
 
             return WorkflowRunRef(
@@ -334,6 +327,20 @@ class AdminClient:
 
             raise e
 
+    def _prepare_workflow_run_request(
+        self, workflow: WorkflowRunDict, options: TriggerWorkflowOptions
+    ) -> TriggerWorkflowRequest:
+        workflow_name = workflow.workflow_name
+        input_data = workflow.input
+        options = workflow.options
+
+        namespace = options.namespace or self.namespace
+
+        if namespace != "" and not workflow_name.startswith(self.namespace):
+            workflow_name = f"{namespace}{workflow_name}"
+
+        return self._prepare_workflow_request(workflow_name, input_data, options)
+
     ## IMPORTANT: Keep this method's signature in sync with the wrapper in the OTel instrumentor
     @tenacity_retry
     def run_workflows(
@@ -341,27 +348,15 @@ class AdminClient:
         workflows: list[WorkflowRunDict],
         options: TriggerWorkflowOptions = TriggerWorkflowOptions(),
     ) -> list[WorkflowRunRef]:
-        workflow_run_requests: list[TriggerWorkflowRequest] = []
-
         if not self.pooled_workflow_listener:
             self.pooled_workflow_listener = PooledWorkflowRunListener(self.config)
 
-        for workflow in workflows:
-            workflow_name = workflow.workflow_name
-            input_data = workflow.input
-            options = workflow.options
-
-            namespace = options.namespace or self.namespace
-
-            if namespace != "" and not workflow_name.startswith(self.namespace):
-                workflow_name = f"{namespace}{workflow_name}"
-
-            # Prepare and trigger workflow for each workflow name and input
-            request = self._prepare_workflow_request(workflow_name, input_data, options)
-
-            workflow_run_requests.append(request)
-
-        bulk_request = BulkTriggerWorkflowRequest(workflows=workflow_run_requests)
+        bulk_request = BulkTriggerWorkflowRequest(
+            workflows=[
+                self._prepare_workflow_run_request(workflow, options)
+                for workflow in workflows
+            ]
+        )
 
         resp: BulkTriggerWorkflowResponse = self.client.BulkTriggerWorkflow(
             bulk_request,
@@ -378,14 +373,11 @@ class AdminClient:
         ]
 
     def get_workflow_run(self, workflow_run_id: str) -> WorkflowRunRef:
-        try:
-            if not self.pooled_workflow_listener:
-                self.pooled_workflow_listener = PooledWorkflowRunListener(self.config)
+        if not self.pooled_workflow_listener:
+            self.pooled_workflow_listener = PooledWorkflowRunListener(self.config)
 
-            return WorkflowRunRef(
-                workflow_run_id=workflow_run_id,
-                workflow_listener=self.pooled_workflow_listener,
-                workflow_run_event_listener=self.listener_client,
-            )
-        except grpc.RpcError as e:
-            raise ValueError(f"Could not get workflow run: {e}")
+        return WorkflowRunRef(
+            workflow_run_id=workflow_run_id,
+            workflow_listener=self.pooled_workflow_listener,
+            workflow_run_event_listener=self.listener_client,
+        )
