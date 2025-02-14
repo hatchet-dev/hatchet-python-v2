@@ -8,7 +8,7 @@ from google.protobuf import timestamp_pb2
 from pydantic import BaseModel, Field
 
 from hatchet_sdk.clients.rest.tenacity_utils import tenacity_retry
-from hatchet_sdk.clients.run_event_listener import new_listener
+from hatchet_sdk.clients.run_event_listener import RunEventListenerClient
 from hatchet_sdk.clients.workflow_listener import PooledWorkflowRunListener
 from hatchet_sdk.connection import new_conn
 from hatchet_sdk.contracts.workflows_pb2 import (
@@ -74,7 +74,7 @@ class AdminClient:
         self.config = config
         self.client = WorkflowServiceStub(conn)  # type: ignore[no-untyped-call]
         self.token = config.token
-        self.listener_client = new_listener(config)
+        self.listener_client = RunEventListenerClient(config=config)
         self.namespace = config.namespace
 
         self.pooled_workflow_listener: PooledWorkflowRunListener | None = None

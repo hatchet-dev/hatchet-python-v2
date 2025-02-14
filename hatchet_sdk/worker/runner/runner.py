@@ -16,7 +16,7 @@ from hatchet_sdk.client import new_client_raw
 from hatchet_sdk.clients.admin import AdminClient
 from hatchet_sdk.clients.dispatcher.action_listener import Action
 from hatchet_sdk.clients.dispatcher.dispatcher import DispatcherClient
-from hatchet_sdk.clients.run_event_listener import new_listener
+from hatchet_sdk.clients.run_event_listener import RunEventListenerClient
 from hatchet_sdk.clients.workflow_listener import PooledWorkflowRunListener
 from hatchet_sdk.context.context import Context
 from hatchet_sdk.context.worker_context import WorkerContext
@@ -83,7 +83,7 @@ class Runner:
         # otherwise the grpc.aio methods will use a different event loop and we'll get a bunch of errors.
         self.dispatcher_client = DispatcherClient(self.config)
         self.admin_client = AdminClient(self.config)
-        self.workflow_run_event_listener = new_listener(self.config)
+        self.workflow_run_event_listener = RunEventListenerClient(self.config)
         self.client.workflow_listener = PooledWorkflowRunListener(self.config)
 
         self.worker_context = WorkerContext(

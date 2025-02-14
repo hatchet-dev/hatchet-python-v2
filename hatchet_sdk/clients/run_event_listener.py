@@ -4,6 +4,7 @@ from enum import Enum
 from typing import Any, AsyncGenerator, Callable, Generator, cast
 
 import grpc
+from pydantic import BaseModel
 
 from hatchet_sdk.connection import new_conn
 from hatchet_sdk.contracts.dispatcher_pb2 import (
@@ -14,9 +15,8 @@ from hatchet_sdk.contracts.dispatcher_pb2 import (
     WorkflowEvent,
 )
 from hatchet_sdk.contracts.dispatcher_pb2_grpc import DispatcherStub
-
-from ..loader import ClientConfig
-from ..metadata import get_metadata
+from hatchet_sdk.loader import ClientConfig
+from hatchet_sdk.metadata import get_metadata
 
 DEFAULT_ACTION_LISTENER_RETRY_INTERVAL = 5  # seconds
 DEFAULT_ACTION_LISTENER_RETRY_COUNT = 5
@@ -57,41 +57,25 @@ workflow_run_event_type_mapping = {
 }
 
 
-class StepRunEvent:
-    def __init__(self, type: StepRunEventType, payload: str):
-        self.type = type
-        self.payload = payload
-
-
-def new_listener(config: ClientConfig) -> "RunEventListenerClient":
-    return RunEventListenerClient(config=config)
+class StepRunEvent(BaseModel):
+    type: StepRunEventType
+    payload: str
 
 
 class RunEventListener:
-
-    workflow_run_id: str | None = None
-    additional_meta_kv: tuple[str, str] | None = None
-
-    def __init__(self, client: DispatcherStub, token: str):
+    def __init__(
+        self,
+        client: DispatcherStub,
+        token: str,
+        workflow_run_id: str | None = None,
+        additional_meta_kv: tuple[str, str] | None = None,
+    ):
         self.client = client
         self.stop_signal = False
         self.token = token
 
-    @classmethod
-    def for_run_id(
-        cls, workflow_run_id: str, client: DispatcherStub, token: str
-    ) -> "RunEventListener":
-        listener = RunEventListener(client, token)
-        listener.workflow_run_id = workflow_run_id
-        return listener
-
-    @classmethod
-    def for_additional_meta(
-        cls, key: str, value: str, client: DispatcherStub, token: str
-    ) -> "RunEventListener":
-        listener = RunEventListener(client, token)
-        listener.additional_meta_kv = (key, value)
-        return listener
+        self.workflow_run_id = workflow_run_id
+        self.additional_meta_kv = additional_meta_kv
 
     def abort(self) -> None:
         self.stop_signal = True
@@ -260,14 +244,18 @@ class RunEventListenerClient:
             aio_conn = new_conn(self.config, True)
             self.client = DispatcherStub(aio_conn)  # type: ignore[no-untyped-call]
 
-        return RunEventListener.for_run_id(workflow_run_id, self.client, self.token)
+        return RunEventListener(
+            client=self.client, token=self.token, workflow_run_id=workflow_run_id
+        )
 
     def stream_by_additional_metadata(self, key: str, value: str) -> RunEventListener:
         if not self.client:
             aio_conn = new_conn(self.config, True)
             self.client = DispatcherStub(aio_conn)  # type: ignore[no-untyped-call]
 
-        return RunEventListener.for_additional_meta(key, value, self.client, self.token)
+        return RunEventListener(
+            client=self.client, token=self.token, additional_meta_kv=(key, value)
+        )
 
     async def on(
         self, workflow_run_id: str, handler: Callable[[StepRunEvent], Any] | None = None
