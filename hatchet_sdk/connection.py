@@ -1,5 +1,5 @@
 import os
-from typing import TYPE_CHECKING, Any, Literal, cast, overload
+from typing import TYPE_CHECKING, Literal, cast, overload
 
 import grpc
 
@@ -20,7 +20,7 @@ def new_conn(config: "ClientConfig", aio: bool) -> grpc.Channel | grpc.aio.Chann
 
     # load channel credentials
     if config.tls_config.strategy == "tls":
-        root: Any | None = None
+        root: bytes | None = None
 
         if config.tls_config.root_ca_file:
             root = open(config.tls_config.root_ca_file, "rb").read()
