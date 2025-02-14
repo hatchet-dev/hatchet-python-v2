@@ -14,10 +14,9 @@ from hatchet_sdk.contracts.dispatcher_pb2 import (
     WorkflowRunEvent,
 )
 from hatchet_sdk.contracts.dispatcher_pb2_grpc import DispatcherStub
-
-from ..loader import ClientConfig
-from ..logger import logger
-from ..metadata import get_metadata
+from hatchet_sdk.loader import ClientConfig
+from hatchet_sdk.logger import logger
+from hatchet_sdk.metadata import get_metadata
 
 DEFAULT_WORKFLOW_LISTENER_RETRY_INTERVAL = 3  # seconds
 DEFAULT_WORKFLOW_LISTENER_RETRY_COUNT = 5
@@ -54,35 +53,37 @@ class _Subscription:
 
 
 class PooledWorkflowRunListener:
-    # list of all active subscriptions, mapping from a subscription id to a workflow run id
-    subscriptionsToWorkflows: dict[int, str] = {}
-
-    # list of workflow run ids mapped to an array of subscription ids
-    workflowsToSubscriptions: dict[str, list[int]] = {}
-
-    subscription_counter: int = 0
-    subscription_counter_lock: asyncio.Lock = asyncio.Lock()
-
-    requests: asyncio.Queue[SubscribeToWorkflowRunsRequest | int] = asyncio.Queue()
-
-    listener: (
-        grpc.aio.UnaryStreamCall[SubscribeToWorkflowRunsRequest, WorkflowRunEvent]
-        | None
-    ) = None
-    listener_task: asyncio.Task[None] | None = None
-
-    curr_requester: int = 0
-
-    # events have keys of the format workflow_run_id + subscription_id
-    events: dict[int, _Subscription] = {}
-
-    interrupter: asyncio.Task[None] | None = None
-
     def __init__(self, config: ClientConfig):
         conn = new_conn(config, True)
         self.client = DispatcherStub(conn)  # type: ignore[no-untyped-call]
         self.token = config.token
         self.config = config
+
+        # list of all active subscriptions, mapping from a subscription id to a workflow run id
+        self.subscriptions_to_workflows: dict[int, str] = {}
+
+        # list of workflow run ids mapped to an array of subscription ids
+        self.workflows_to_subscriptions: dict[str, list[int]] = {}
+
+        self.subscription_counter: int = 0
+        self.subscription_counter_lock: asyncio.Lock = asyncio.Lock()
+
+        self.requests: asyncio.Queue[SubscribeToWorkflowRunsRequest | int] = (
+            asyncio.Queue()
+        )
+
+        self.listener: (
+            grpc.aio.UnaryStreamCall[SubscribeToWorkflowRunsRequest, WorkflowRunEvent]
+            | None
+        ) = None
+        self.listener_task: asyncio.Task[None] | None = None
+
+        self.curr_requester: int = 0
+
+        # events have keys of the format workflow_run_id + subscription_id
+        self.events: dict[int, _Subscription] = {}
+
+        self.interrupter: asyncio.Task[None] | None = None
 
     async def _interrupter(self) -> None:
         """
@@ -138,7 +139,7 @@ class PooledWorkflowRunListener:
                                 break
 
                             # get a list of subscriptions for this workflow
-                            subscriptions = self.workflowsToSubscriptions.get(
+                            subscriptions = self.workflows_to_subscriptions.get(
                                 workflow_event.workflowRunId, []
                             )
 
@@ -165,7 +166,7 @@ class PooledWorkflowRunListener:
         self.curr_requester = self.curr_requester + 1
 
         # replay all existing subscriptions
-        workflow_run_set = set(self.subscriptionsToWorkflows.values())
+        workflow_run_set = set(self.subscriptions_to_workflows.values())
 
         for workflow_run_id in workflow_run_set:
             yield SubscribeToWorkflowRunsRequest(
@@ -187,12 +188,12 @@ class PooledWorkflowRunListener:
             self.requests.task_done()
 
     def cleanup_subscription(self, subscription_id: int) -> None:
-        workflow_run_id = self.subscriptionsToWorkflows[subscription_id]
+        workflow_run_id = self.subscriptions_to_workflows[subscription_id]
 
-        if workflow_run_id in self.workflowsToSubscriptions:
-            self.workflowsToSubscriptions[workflow_run_id].remove(subscription_id)
+        if workflow_run_id in self.workflows_to_subscriptions:
+            self.workflows_to_subscriptions[workflow_run_id].remove(subscription_id)
 
-        del self.subscriptionsToWorkflows[subscription_id]
+        del self.subscriptions_to_workflows[subscription_id]
         del self.events[subscription_id]
 
     async def subscribe(self, workflow_run_id: str) -> WorkflowRunEvent:
@@ -203,12 +204,12 @@ class PooledWorkflowRunListener:
             subscription_id = self.subscription_counter
             self.subscription_counter_lock.release()
 
-            self.subscriptionsToWorkflows[subscription_id] = workflow_run_id
+            self.subscriptions_to_workflows[subscription_id] = workflow_run_id
 
-            if workflow_run_id not in self.workflowsToSubscriptions:
-                self.workflowsToSubscriptions[workflow_run_id] = [subscription_id]
+            if workflow_run_id not in self.workflows_to_subscriptions:
+                self.workflows_to_subscriptions[workflow_run_id] = [subscription_id]
             else:
-                self.workflowsToSubscriptions[workflow_run_id].append(subscription_id)
+                self.workflows_to_subscriptions[workflow_run_id].append(subscription_id)
 
             self.events[subscription_id] = _Subscription(
                 subscription_id, workflow_run_id
@@ -233,11 +234,7 @@ class PooledWorkflowRunListener:
         from hatchet_sdk.clients.admin import DedupeViolationErr
 
         event = await self.subscribe(workflow_run_id)
-
-        errors = []
-
-        if event.results:
-            errors = [result.error for result in event.results if result.error]
+        errors = [result.error for result in event.results if result.error]
 
         if errors:
             if DEDUPE_MESSAGE in errors[0]:
@@ -245,13 +242,11 @@ class PooledWorkflowRunListener:
             else:
                 raise Exception(f"Workflow Errors: {errors}")
 
-        results = {
+        return {
             result.stepReadableId: json.loads(result.output)
             for result in event.results
             if result.output
         }
-
-        return results
 
     async def _retry_subscribe(
         self,
