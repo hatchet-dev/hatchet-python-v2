@@ -9,6 +9,7 @@ import grpc.aio
 from grpc._cython import cygrpc  # type: ignore[attr-defined]
 
 from hatchet_sdk.clients.event_ts import Event_ts, read_with_interrupt
+from hatchet_sdk.clients.events import proto_timestamp_now
 from hatchet_sdk.clients.run_event_listener import (
     DEFAULT_ACTION_LISTENER_RETRY_INTERVAL,
 )
@@ -22,13 +23,11 @@ from hatchet_sdk.contracts.dispatcher_pb2 import (
     WorkerUnsubscribeRequest,
 )
 from hatchet_sdk.contracts.dispatcher_pb2_grpc import DispatcherStub
+from hatchet_sdk.loader import ClientConfig
 from hatchet_sdk.logger import logger
+from hatchet_sdk.metadata import get_metadata
 from hatchet_sdk.utils.backoff import exp_backoff_sleep
 from hatchet_sdk.utils.types import JSONSerializableDict
-
-from ...loader import ClientConfig
-from ...metadata import get_metadata
-from ..events import proto_timestamp_now
 
 DEFAULT_ACTION_TIMEOUT = 600  # seconds
 DEFAULT_ACTION_LISTENER_RETRY_COUNT = 15
