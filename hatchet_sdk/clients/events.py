@@ -16,10 +16,9 @@ from hatchet_sdk.contracts.events_pb2 import (
     PutStreamEventRequest,
 )
 from hatchet_sdk.contracts.events_pb2_grpc import EventsServiceStub
+from hatchet_sdk.loader import ClientConfig
+from hatchet_sdk.metadata import get_metadata
 from hatchet_sdk.utils.types import JSONSerializableDict
-
-from ..loader import ClientConfig
-from ..metadata import get_metadata
 
 
 def new_event(conn: grpc.Channel, config: ClientConfig) -> "EventClient":
@@ -106,6 +105,33 @@ class EventClient:
 
         return cast(Event, self.client.Push(request, metadata=get_metadata(self.token)))
 
+    def _create_push_event_request(
+        self,
+        event: BulkPushEventWithMetadata,
+        namespace: str,
+    ) -> PushEventRequest:
+        event_key = namespace + event.key
+        payload = event.payload
+
+        meta = event.additional_metadata
+
+        try:
+            meta_str = json.dumps(meta)
+        except Exception as e:
+            raise ValueError(f"Error encoding meta: {e}")
+
+        try:
+            payload = json.dumps(payload)
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"Error encoding payload: {e}")
+
+        return PushEventRequest(
+            key=event_key,
+            payload=payload,
+            eventTimestamp=proto_timestamp_now(),
+            additionalMetadata=meta_str,
+        )
+
     ## IMPORTANT: Keep this method's signature in sync with the wrapper in the OTel instrumentor
     @tenacity_retry
     def bulk_push(
@@ -115,32 +141,11 @@ class EventClient:
     ) -> List[Event]:
         namespace = options.namespace or self.namespace
 
-        bulk_events = []
-        for event in events:
-            event_key = namespace + event.key
-            payload = event.payload
-
-            meta = event.additional_metadata
-
-            try:
-                meta_str = json.dumps(meta)
-            except Exception as e:
-                raise ValueError(f"Error encoding meta: {e}")
-
-            try:
-                payload = json.dumps(payload)
-            except (TypeError, ValueError) as e:
-                raise ValueError(f"Error encoding payload: {e}")
-
-            request = PushEventRequest(
-                key=event_key,
-                payload=payload,
-                eventTimestamp=proto_timestamp_now(),
-                additionalMetadata=meta_str,
-            )
-            bulk_events.append(request)
-
-        bulk_request = BulkPushEventRequest(events=bulk_events)
+        bulk_request = BulkPushEventRequest(
+            events=[
+                self._create_push_event_request(event, namespace) for event in events
+            ]
+        )
 
         response = self.client.BulkPush(bulk_request, metadata=get_metadata(self.token))
 
@@ -150,31 +155,26 @@ class EventClient:
         )
 
     def log(self, message: str, step_run_id: str) -> None:
-        try:
-            request = PutLogRequest(
-                stepRunId=step_run_id,
-                createdAt=proto_timestamp_now(),
-                message=message,
-            )
+        request = PutLogRequest(
+            stepRunId=step_run_id,
+            createdAt=proto_timestamp_now(),
+            message=message,
+        )
 
-            self.client.PutLog(request, metadata=get_metadata(self.token))
-        except Exception as e:
-            raise ValueError(f"Error logging: {e}")
+        self.client.PutLog(request, metadata=get_metadata(self.token))
 
     def stream(self, data: str | bytes, step_run_id: str) -> None:
-        try:
-            if isinstance(data, str):
-                data_bytes = data.encode("utf-8")
-            elif isinstance(data, bytes):
-                data_bytes = data
-            else:
-                raise ValueError("Invalid data type. Expected str, bytes, or file.")
+        if isinstance(data, str):
+            data_bytes = data.encode("utf-8")
+        elif isinstance(data, bytes):
+            data_bytes = data
+        else:
+            raise ValueError("Invalid data type. Expected str, bytes, or file.")
 
-            request = PutStreamEventRequest(
-                stepRunId=step_run_id,
-                createdAt=proto_timestamp_now(),
-                message=data_bytes,
-            )
-            self.client.PutStreamEvent(request, metadata=get_metadata(self.token))
-        except Exception as e:
-            raise ValueError(f"Error putting stream event: {e}")
+        request = PutStreamEventRequest(
+            stepRunId=step_run_id,
+            createdAt=proto_timestamp_now(),
+            message=data_bytes,
+        )
+
+        self.client.PutStreamEvent(request, metadata=get_metadata(self.token))
