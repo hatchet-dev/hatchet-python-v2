@@ -94,12 +94,13 @@ class RestApi:
             access_token=api_key,
         )
 
-        self._api_client: ApiClient | None = None
-        self._workflow_api: WorkflowApi | None = None
-        self._workflow_run_api: WorkflowRunApi | None = None
-        self._step_run_api: StepRunApi | None = None
-        self._event_api: EventApi | None = None
-        self._log_api: LogApi | None = None
+        self.api_client = ApiClient(configuration=self.config)
+
+        self.workflow_api = WorkflowApi(self.api_client)
+        self.workflow_run_api = WorkflowRunApi(self.api_client)
+        self.step_run_api = StepRunApi(self.api_client)
+        self.event_api = EventApi(self.api_client)
+        self.log_api = LogApi(self.api_client)
 
         self._loop = asyncio.new_event_loop()
         self._thread = threading.Thread(target=self._run_event_loop, daemon=True)
@@ -108,46 +109,9 @@ class RestApi:
         # Register the cleanup method to be called on exit
         atexit.register(self._cleanup)
 
-    @property
-    def api_client(self) -> ApiClient:
-        if self._api_client is None:
-            self._api_client = ApiClient(configuration=self.config)
-        return self._api_client
-
-    @property
-    def workflow_api(self) -> WorkflowApi:
-        if self._workflow_api is None:
-            self._workflow_api = WorkflowApi(self.api_client)
-        return self._workflow_api
-
-    @property
-    def workflow_run_api(self) -> WorkflowRunApi:
-        if self._workflow_run_api is None:
-            self._workflow_run_api = WorkflowRunApi(self.api_client)
-        return self._workflow_run_api
-
-    @property
-    def step_run_api(self) -> StepRunApi:
-        if self._step_run_api is None:
-            self._step_run_api = StepRunApi(self.api_client)
-        return self._step_run_api
-
-    @property
-    def event_api(self) -> EventApi:
-        if self._event_api is None:
-            self._event_api = EventApi(self.api_client)
-        return self._event_api
-
-    @property
-    def log_api(self) -> LogApi:
-        if self._log_api is None:
-            self._log_api = LogApi(self.api_client)
-        return self._log_api
-
     async def close(self) -> None:
         # Ensure the aiohttp client session is closed
-        if self._api_client is not None:
-            await self._api_client.close()
+        await self.api_client.close()
 
     async def aio_list_workflows(self) -> WorkflowList:
         return await self.workflow_api.workflow_list(
