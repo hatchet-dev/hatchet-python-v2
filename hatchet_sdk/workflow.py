@@ -218,7 +218,10 @@ class WorkflowDeclaration(Generic[TWorkflowInput]):
         )
 
     def get_workflow_input(self, ctx: Context) -> TWorkflowInput:
-        return cast(TWorkflowInput, ctx.workflow_input)
+        return cast(
+            TWorkflowInput,
+            self.config.input_validator.model_validate(ctx.workflow_input),
+        )
 
     def construct_spawn_workflow_input(
         self,
