@@ -2,7 +2,7 @@ import inspect
 import json
 import traceback
 from concurrent.futures import Future, ThreadPoolExecutor
-from typing import Any, TypeVar, cast
+from typing import Any, cast
 from warnings import warn
 
 from pydantic import BaseModel, StrictStr
@@ -30,8 +30,6 @@ from hatchet_sdk.utils.types import JSONSerializableDict, WorkflowValidator
 from hatchet_sdk.workflow_run import WorkflowRunRef
 
 DEFAULT_WORKFLOW_POLLING_INTERVAL = 5  # Seconds
-
-T = TypeVar("T", bound=BaseModel)
 
 
 def get_caller_file_path() -> str:
@@ -144,15 +142,7 @@ class Context:
         return cast(str, self.data.get("triggered_by", "")) == "event"
 
     @property
-    def workflow_input(self) -> dict[str, Any] | T:
-        if (r := self.validator_registry.get(self.action.action_id)) and (
-            i := r.workflow_input
-        ):
-            return cast(
-                T,
-                i.model_validate(self.input),
-            )
-
+    def workflow_input(self) -> dict[str, Any]:
         return self.input
 
     @property

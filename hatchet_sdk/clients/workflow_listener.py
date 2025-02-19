@@ -54,6 +54,12 @@ class _Subscription:
 
 class PooledWorkflowRunListener:
     def __init__(self, config: ClientConfig):
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
         conn = new_conn(config, True)
         self.client = DispatcherStub(conn)  # type: ignore[no-untyped-call]
         self.token = config.token
