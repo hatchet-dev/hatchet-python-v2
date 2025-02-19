@@ -2,7 +2,6 @@ import asyncio
 import inspect
 from concurrent.futures import Executor
 from functools import partial, wraps
-from threading import Thread
 from typing import Any
 
 
@@ -79,45 +78,6 @@ def sync_to_async(func: Any) -> Any:
             return await loop.run_in_executor(executor, pfunc)
 
     return run
-
-
-class EventLoopThread:
-    """A class that manages an asyncio event loop running in a separate thread."""
-
-    def __init__(self) -> None:
-        """
-        Initializes the EventLoopThread by creating an event loop
-        and setting up a thread to run the loop.
-        """
-        self.loop = asyncio.new_event_loop()
-        self.thread = Thread(target=self.run_loop_in_thread, args=(self.loop,))
-
-    def __enter__(self, *a, **kw) -> asyncio.AbstractEventLoop:
-        """
-        Starts the thread running the event loop when entering the context.
-
-        Returns:
-            asyncio.AbstractEventLoop: The event loop running in the separate thread.
-        """
-        self.thread.start()
-        return self.loop
-
-    def __exit__(self, *a, **kw) -> None:
-        """
-        Stops the event loop and joins the thread when exiting the context.
-        """
-        self.loop.call_soon_threadsafe(self.loop.stop)
-        self.thread.join()
-
-    def run_loop_in_thread(self, loop: asyncio.AbstractEventLoop) -> None:
-        """
-        Sets the event loop for the current thread and runs it forever.
-
-        Args:
-            loop (asyncio.AbstractEventLoop): The event loop to run.
-        """
-        asyncio.set_event_loop(loop)
-        loop.run_forever()
 
 
 def get_active_event_loop() -> asyncio.AbstractEventLoop | None:

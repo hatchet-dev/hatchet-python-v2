@@ -1,33 +1,50 @@
 from typing import Any
 
 from dotenv import load_dotenv
+from pydantic import BaseModel
 
-from hatchet_sdk import Context, Hatchet
-from hatchet_sdk.workflow_run import WorkflowRunRef
+from hatchet_sdk import BaseWorkflow, ChildTriggerWorkflowOptions, Context, Hatchet
 
 load_dotenv()
 
 hatchet = Hatchet(debug=True)
 
 
-@hatchet.workflow(on_events=["parent:create"])
-class SyncFanoutParent:
+class ParentInput(BaseModel):
+    n: int = 5
+
+
+class ChildInput(BaseModel):
+    a: str
+
+
+parent = hatchet.declare_workflow(
+    on_events=["parent:create"], input_validator=ParentInput
+)
+child = hatchet.declare_workflow(on_events=["child:create"], input_validator=ChildInput)
+
+
+class SyncFanoutParent(BaseWorkflow):
+    config = parent.config
+
     @hatchet.step(timeout="5m")
     def spawn(self, context: Context) -> dict[str, Any]:
         print("spawning child")
 
-        n = context.workflow_input().get("n", 5)
+        n = parent.get_workflow_input(context).n
 
-        runs = context.spawn_workflows(
+        runs = child.spawn_many(
+            context,
             [
-                {
-                    "workflow_name": "SyncFanoutChild",
-                    "input": {"a": str(i)},
-                    "key": f"child{i}",
-                    "options": {"additional_metadata": {"hello": "earth"}},
-                }
+                child.construct_spawn_workflow_input(
+                    input=ChildInput(a=str(i)),
+                    key=f"child{i}",
+                    options=ChildTriggerWorkflowOptions(
+                        additional_metadata={"hello": "earth"}
+                    ),
+                )
                 for i in range(n)
-            ]
+            ],
         )
 
         results = [r.sync_result() for r in runs]
@@ -37,11 +54,12 @@ class SyncFanoutParent:
         return {"results": results}
 
 
-@hatchet.workflow(on_events=["child:create"])
-class SyncFanoutChild:
+class SyncFanoutChild(BaseWorkflow):
+    config = child.config
+
     @hatchet.step()
     def process(self, context: Context) -> dict[str, str]:
-        return {"status": "success " + context.workflow_input()["a"]}
+        return {"status": "success " + context.workflow_input["a"]}
 
 
 def main() -> None:

@@ -2,7 +2,7 @@ import asyncio
 
 from dotenv import load_dotenv
 
-from hatchet_sdk import new_client
+from hatchet_sdk import TriggerWorkflowOptions, new_client
 
 
 async def main() -> None:
@@ -12,7 +12,7 @@ async def main() -> None:
     hatchet.admin.run_workflow(
         "SyncFanoutParent",
         {"test": "test"},
-        options={"additional_metadata": {"hello": "moon"}},
+        options=TriggerWorkflowOptions(additional_metadata={"hello": "moon"}),
     )
 
 

@@ -8,7 +8,6 @@ from hatchet_sdk.clients.admin import TriggerWorkflowOptions
 from hatchet_sdk.clients.events import PushEventOptions
 from hatchet_sdk.opentelemetry.instrumentor import (
     HatchetInstrumentor,
-    create_traceparent,
     inject_traceparent_into_metadata,
 )
 
