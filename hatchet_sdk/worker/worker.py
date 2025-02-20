@@ -31,10 +31,10 @@ from hatchet_sdk.worker.runner.run_loop_manager import (
     STOP_LOOP_TYPE,
     WorkerActionRunLoopManager,
 )
-from hatchet_sdk.workflow import Step
+from hatchet_sdk.workflow import BaseWorkflow, Step, StepType
 
 if TYPE_CHECKING:
-    from hatchet_sdk.workflow import BaseWorkflow
+    from hatchet_sdk.hatchet import Function
 
 T = TypeVar("T")
 
@@ -107,6 +107,32 @@ class Worker:
             logger.error(f"failed to register workflow: {opts.name}")
             logger.error(e)
             sys.exit(1)
+
+    def register_function(self, function: "Function[Any]") -> None:
+        from hatchet_sdk.workflow import BaseWorkflow
+
+        declaration = function.hatchet.declare_workflow(
+            **function.workflow_config.model_dump()
+        )
+
+        class Workflow(BaseWorkflow):
+            config = declaration.config
+
+            @property
+            def default_steps(self) -> list[Step[Any]]:
+                return [function.step]
+
+            @property
+            def on_failure_steps(self) -> list[Step[Any]]:
+                if not function.on_failure_step:
+                    return []
+
+                step = function.on_failure_step.step
+                step.type = StepType.ON_FAILURE
+
+                return [step]
+
+        self.register_workflow(Workflow())
 
     def register_workflow(self, workflow: Union["BaseWorkflow", Any]) -> None:
         namespace = self.client.config.namespace
